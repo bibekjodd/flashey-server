@@ -1,7 +1,8 @@
 import { RequestHandler } from "express";
+import { messages } from "../lib/messages";
 
 export const notFound: RequestHandler = (req, res) => {
   res.status(400).json({
-    message: "The requested url is not found",
+    message: messages.not_found,
   });
 };

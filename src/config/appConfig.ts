@@ -3,6 +3,7 @@ import express, { Express } from "express";
 import { connectDatabase } from "./database";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import mongoose from "mongoose";
+import { configureCloudinary } from "../lib/cloudinary";
 
 /**
  * Initial config for app
@@ -14,6 +15,10 @@ import mongoose from "mongoose";
 export default function initialConfig(app: Express) {
   validateEnv();
   connectDatabase();
+
+  configureCloudinary();
+
+  // app configs
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(

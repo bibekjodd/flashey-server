@@ -6,6 +6,10 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv extends EnvType {
       NODE_ENV: "development" | "production";
+
+      CLOUDINARY_CLOUD_NAME: string;
+      CLOUDINARY_API_KEY: string;
+      CLOUDINARY_API_SECRET: string;
     }
   }
 

@@ -9,16 +9,25 @@ import {
   validateLoginUser,
   validateRegisterUser,
 } from "../lib/zod/validateUser";
+import { messages } from "../lib/messages";
+import { uploadProfilePicture } from "../lib/cloudinary";
 
 export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
   async (req, res, next) => {
     validateRegisterUser(req.body);
-    const { name, email, password } = req.body;
+    const { name, email, password, imageUri } = req.body;
 
     const user = await User.findOne({ email });
-    if (user)
-      return next(new ErrorHandler("User with same email already exists", 409));
-    const newUser = await User.create({ name, email, password });
+    if (user) return next(new ErrorHandler(messages.email_already_taken, 409));
+
+    const { public_id, url } = await uploadProfilePicture(imageUri);
+
+    const newUser = await User.create({
+      name,
+      email,
+      password,
+      picture: { public_id, url },
+    });
     res.status(201).json({
       user: newUser,
     });
@@ -31,17 +40,16 @@ export const login = catchAsyncError<unknown, unknown, LoginUserSchema>(
     const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select("+password");
-    if (!user) return next(new ErrorHandler("Invalid user credintials", 404));
+    if (!user) return next(new ErrorHandler(messages.invalid_creditials, 404));
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch)
-      return next(new ErrorHandler("Invalid user credintials", 400));
+      return next(new ErrorHandler(messages.invalid_creditials, 400));
 
     res.status(200).json({ user });
   }
 );
 
-// use middleware before this
 export const myProfile = catchAsyncError(async (req, res) => {
   const user = await User.findById(req.user._id);
   res.status(200).json({
