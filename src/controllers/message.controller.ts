@@ -62,4 +62,73 @@ export const sendMessage = catchAsyncError<
   res.status(400).json({ message: messages.unexpected_error });
 });
 
+export const addReaction = catchAsyncError<
+  { messageId: string },
+  unknown,
+  { reaction: string }
+>(async (req, res, next) => {
+  const { messageId } = req.params;
+  const { reaction } = req.body;
 
+  const validReactions = ["haha", "love", "wow", "angry", "sad"];
+  if (!reaction || !validReactions.includes(reaction)) {
+    return next(new ErrorHandler("Invalid reaction", 400));
+  }
+
+  const message = await Message.findById(messageId);
+  if (!message) {
+    return next(
+      new ErrorHandler("Message already deleted or does not exist", 400)
+    );
+  }
+
+  const chat = await Chat.findById(message.chat?.toString());
+  if (!chat?.users?.includes(req.user._id.toString())) {
+    return next(new ErrorHandler("You are not part of this message"));
+  }
+
+  const previouslyReacted = message?.reactions.find(
+    (reaction) => reaction.user?.toString() === req.user._id.toString()
+  );
+
+  if (previouslyReacted) {
+    message.reactions = message.reactions.map((reaction) => {
+      if (reaction.user?.toString() !== req.user._id.toString()) {
+        return reaction;
+      }
+      return {
+        ...reaction,
+        value: req.body.reaction,
+      };
+    });
+  } else {
+    message.reactions.push({
+      user: req.user._id.toString(),
+      value: req.body.reaction,
+    });
+  }
+
+  await message.save();
+
+  res.status(200).json({ message: "Reaction updated successfully" });
+});
+
+export const removeReaction = catchAsyncError<{ messageId: string }>(
+  async (req, res, next) => {
+    const message = await Message.findById(req.params.messageId);
+    if (!message) {
+      return next(
+        new ErrorHandler("Message is deleted or does not exist", 400)
+      );
+    }
+
+    message.reactions = message?.reactions.filter(
+      (reaction) => reaction.user?.toString() !== req.user._id.toString()
+    );
+
+
+    await message.save();
+
+    res.status(200).json({ message: "Reaction removed successfully" });
+  }
+);
