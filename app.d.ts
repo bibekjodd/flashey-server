@@ -1,11 +1,13 @@
 import { EnvType } from "./src/lib/validateEnv";
-import { IUser } from "./src/models/user.model";
+import { IUser } from "./src/models/User.Model";
 
 export {};
 declare global {
   namespace NodeJS {
     interface ProcessEnv extends EnvType {
       NODE_ENV: "development" | "production";
+      JWT_SECRET: string;
+      FRONTEND_URL: string;
 
       CLOUDINARY_CLOUD_NAME: string;
       CLOUDINARY_API_KEY: string;

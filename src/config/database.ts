@@ -10,7 +10,7 @@ export const connectDatabase = async () => {
     devConsole(`Mongodb connected at ${connection.host}`.magenta);
   } catch (error) {
     global.databaseConnected = true;
-    if (error instanceof Error) console.log(error.message);
+    if (error instanceof Error) devConsole(error.message);
 
     devConsole(`Error occured while connecting mongodb`.red);
   }

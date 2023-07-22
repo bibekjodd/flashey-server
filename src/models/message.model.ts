@@ -13,14 +13,14 @@ const messageSchema = new mongoose.Schema(
     image: String,
     sender: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
     },
     receiver: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
     },
-    viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],
-    chat: { type: mongoose.Schema.Types.ObjectId, ref: "chat" },
+    viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    chat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
   },
   { timestamps: true }
 );

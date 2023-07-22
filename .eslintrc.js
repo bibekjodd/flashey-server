@@ -13,5 +13,6 @@ module.exports = {
   plugins: ["@typescript-eslint"],
   rules: {
     "no-var": "off",
+    "@typescript-eslint/ban-ts-comment": "off",
   },
 };

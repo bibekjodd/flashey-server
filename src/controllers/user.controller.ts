@@ -1,16 +1,17 @@
 import { catchAsyncError } from "../middlewares/catchAsyncError";
-import User from "../models/user.model";
+import User from "../models/User.Model";
 import { ErrorHandler } from "../lib/errorHandler";
 import {
   LoginUserSchema,
   RegisterUserSchema,
-} from "../lib/zod/userValidationSchema";
+} from "../lib/validation/userValidationSchema";
 import {
   validateLoginUser,
   validateRegisterUser,
-} from "../lib/zod/validateUser";
+} from "../lib/validation/validateUser";
 import { messages } from "../lib/messages";
 import { uploadProfilePicture } from "../lib/cloudinary";
+import { logoutCookieOptions, sendToken } from "../lib/sendToken";
 
 export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
   async (req, res, next) => {
@@ -18,7 +19,7 @@ export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
     const { name, email, password, imageUri } = req.body;
 
     const user = await User.findOne({ email });
-    if (user) return next(new ErrorHandler(messages.email_already_taken, 409));
+    if (user) return next(new ErrorHandler(messages.email_already_taken, 400));
 
     const { public_id, url } = await uploadProfilePicture(imageUri);
 
@@ -28,9 +29,8 @@ export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
       password,
       picture: { public_id, url },
     });
-    res.status(201).json({
-      user: newUser,
-    });
+
+    sendToken(res, newUser);
   }
 );
 
@@ -46,13 +46,20 @@ export const login = catchAsyncError<unknown, unknown, LoginUserSchema>(
     if (!isMatch)
       return next(new ErrorHandler(messages.invalid_creditials, 400));
 
-    res.status(200).json({ user });
+    sendToken(res, user);
   }
 );
 
 export const myProfile = catchAsyncError(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findById({ _id: req.user._id.toString() });
   res.status(200).json({
     user,
   });
+});
+
+export const logout = catchAsyncError(async (req, res) => {
+  res
+    .status(200)
+    .cookie("token", "", logoutCookieOptions)
+    .json({ message: messages.logout_succcess });
 });
