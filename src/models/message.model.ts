@@ -2,24 +2,35 @@ import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema(
   {
-    text: String,
+    text: {
+      type: String,
+      trim: true,
+    },
     reactions: [
       {
-        type: String,
-        enum: ["haha", "love", "wow", "angry", "sad"],
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        value: {
+          type: String,
+          enum: ["haha", "love", "wow", "angry", "sad"],
+        },
       },
     ],
 
-    image: String,
+    image: {
+      public_id: String,
+      url: String,
+    },
+
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    receiver: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
+
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     chat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
   },
   { timestamps: true }

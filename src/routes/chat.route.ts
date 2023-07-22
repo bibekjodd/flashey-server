@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   accessChat,
+  accessFriendsChat,
   addToGroup,
   createGroupChat,
   fetchChats,
@@ -11,7 +12,8 @@ import { isAuthenticated } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/chat/:friendsId", isAuthenticated, accessChat);
+router.get("/chat/user/:friendsId", isAuthenticated, accessFriendsChat);
+router.get("/chat/group/:chatId", isAuthenticated, accessChat);
 router.get("/fetchchats", isAuthenticated, fetchChats);
 router.post("/group/create", isAuthenticated, createGroupChat);
 router.put("/group/add", isAuthenticated, addToGroup);

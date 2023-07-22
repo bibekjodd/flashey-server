@@ -63,3 +63,27 @@ export const logout = catchAsyncError(async (req, res) => {
     .cookie("token", "", logoutCookieOptions)
     .json({ message: messages.logout_succcess });
 });
+
+export const searchUsers = catchAsyncError<{ search: string }>(
+  async (req, res, next) => {
+    const { search } = req.params;
+    if (!search) {
+      return next(
+        new ErrorHandler("Provide search query to search users", 400)
+      );
+    }
+
+    const users = await User.find({
+      $or: [
+        {
+          name: { $regex: search, $options: "i" },
+        },
+        {
+          email: { $regex: search, $options: "i" },
+        },
+      ],
+    });
+
+    res.status(200).json({ users });
+  }
+);

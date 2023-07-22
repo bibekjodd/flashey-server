@@ -4,10 +4,16 @@ import { validateCreateGroupChat } from "../lib/validation/validateChat";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import Chat from "../models/Chat.Model";
 import Message from "../models/Message.Model";
+import User from "../models/User.Model";
 
-export const accessChat = catchAsyncError<{ friendsId?: string }>(
+export const accessFriendsChat = catchAsyncError<{ friendsId?: string }>(
   async (req, res, next) => {
     const friendsId = req.params?.friendsId;
+
+    const friend = await User.findById(friendsId);
+    if (!friend) {
+      return next(new ErrorHandler("User is not available", 400));
+    }
 
     if (req.user._id.toString() === friendsId) {
       return next(new ErrorHandler("You can't chat with yourself", 400));
@@ -22,7 +28,20 @@ export const accessChat = catchAsyncError<{ friendsId?: string }>(
     }).populate("users", "name picture email");
 
     if (chat) {
-      const messages = await Message.find({ chat: chat._id.toString() });
+      const messages = await Message.find({
+        chat: chat._id.toString(),
+      })
+        .populate({ path: "sender", select: "name picture email" })
+        .populate({ path: "viewers", select: "name picture email" })
+        .populate({
+          path: "reactions",
+          populate: {
+            path: "user",
+            select: "name picture email",
+          },
+        })
+        .sort({ updatedAt: "desc" });
+
       return res.status(200).json({
         chat,
         messages,
@@ -36,7 +55,37 @@ export const accessChat = catchAsyncError<{ friendsId?: string }>(
       })
     ).populate("users", "name picture email");
 
-    res.status(200).json({ chat: newChat });
+    res.status(200).json({ chat: newChat, messages: [] });
+  }
+);
+
+export const accessChat = catchAsyncError<{ chatId: string }>(
+  async (req, res, next) => {
+    const { chatId } = req.params;
+    const chat = await Chat.findById(chatId)
+      .populate({ path: "users", select: "name picture email" })
+      .populate({ path: "latestMessage" })
+      .populate({ path: "groupAdmin" });
+
+    if (!chat) {
+      return next(new ErrorHandler("Chat doesn't exist", 400));
+    }
+
+    const messages = await Message.find({
+      chat: chat._id.toString(),
+    })
+      .populate({ path: "sender", select: "name picture email" })
+      .populate({ path: "viewers", select: "name picture email" })
+      .populate({
+        path: "reactions",
+        populate: {
+          path: "user",
+          select: "name picture email",
+        },
+      })
+      .sort({ updatedAt: "desc" });
+
+    return res.status(200).json({ chat, messages });
   }
 );
 
@@ -52,7 +101,7 @@ export const fetchChats = catchAsyncError(async (req, res) => {
         select: "name picture email",
       },
     })
-    .sort({ updatedAt: -1 });
+    .sort({ updatedAt: "desc" });
   res.status(200).json({ chats });
 });
 

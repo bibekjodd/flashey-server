@@ -16,7 +16,24 @@ export const uploadProfilePicture = async (
   try {
     const { public_id, secure_url } = await cloudinary.v2.uploader.upload(
       datauri,
-      { folder: "RealtimeChatApi" }
+      { folder: "RealtimeChatApi/profilepicture" }
+    );
+
+    return { public_id, url: secure_url };
+  } catch (err) {
+    return {};
+  }
+};
+
+export const uploadMessagePicture = async (
+  datauri?: string
+): Promise<{ public_id?: string; url?: string }> => {
+  if (!datauri) return {};
+
+  try {
+    const { public_id, secure_url } = await cloudinary.v2.uploader.upload(
+      datauri,
+      { folder: "RealtimeChatApi/chatmessages" }
     );
 
     return { public_id, url: secure_url };
