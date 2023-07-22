@@ -14,6 +14,9 @@ export const messages = {
 
   invalid_id: "Invalid id provided",
 
+  group_user_add_success: "User added to group successfully",
+  group_user_remove_success: "User removed from group successfully",
+
   not_found: "The requested url is not found",
   unexpected_error: "Unexpected error occurred on the server",
 };
