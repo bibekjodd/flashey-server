@@ -12,7 +12,7 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
-  "name": "server",
+  "name": "realtimechat-api",
   "version": "1.0.0",
   "main": "dist/app.js",
   "scripts": {

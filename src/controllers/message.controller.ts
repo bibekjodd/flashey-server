@@ -1,4 +1,5 @@
 import { uploadMessagePicture } from "../lib/cloudinary";
+import { validReactions } from "../lib/constants";
 import { ErrorHandler } from "../lib/errorHandler";
 import { messages } from "../lib/messages";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
@@ -70,7 +71,6 @@ export const addReaction = catchAsyncError<
   const { messageId } = req.params;
   const { reaction } = req.body;
 
-  const validReactions = ["haha", "love", "wow", "angry", "sad"];
   if (!reaction || !validReactions.includes(reaction)) {
     return next(new ErrorHandler("Invalid reaction", 400));
   }

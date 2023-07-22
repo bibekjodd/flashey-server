@@ -21,6 +21,7 @@ export const sendToken = (res: Response, user: IUser, statusCode?: number) => {
     expiresIn: "7d",
   });
 
+  // @ts-ignore
   user.password = undefined;
   res
     .status(statusCode || 200)

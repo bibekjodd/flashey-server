@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { validReactions } from "../lib/constants";
 
 const messageSchema = new mongoose.Schema(
   {
@@ -14,7 +15,7 @@ const messageSchema = new mongoose.Schema(
         },
         value: {
           type: String,
-          enum: ["haha", "love", "wow", "angry", "sad"],
+          enum: validReactions,
         },
       },
     ],
