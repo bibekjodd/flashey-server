@@ -46,7 +46,7 @@ exports.myProfile = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
 exports.logout = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
     res
         .status(200)
-        .cookie("token", "", sendToken_1.logoutCookieOptions)
+        .cookie("token", "nothing", sendToken_1.logoutCookieOptions)
         .json({ message: messages_1.messages.logout_succcess });
 });
 exports.searchUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
