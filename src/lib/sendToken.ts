@@ -26,5 +26,5 @@ export const sendToken = (res: Response, user: IUser, statusCode?: number) => {
   res
     .status(statusCode || 200)
     .cookie("token", token, cookieOptions)
-    .json({ user });
+    .json({ user, token });
 };

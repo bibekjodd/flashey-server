@@ -26,7 +26,10 @@ function initialConfig(app) {
     app.use(express_1.default.json({ limit: "2mb" }));
     app.use(express_1.default.urlencoded({ extended: true }));
     app.use((0, cookie_parser_1.default)());
-    app.use((0, cors_1.default)({ origin: process.env.FRONTEND_URL.split(" "), credentials: true }));
+    app.use((0, cors_1.default)({
+        origin: process.env.FRONTEND_URL.split(" ") || [],
+        credentials: true,
+    }));
     app.enable("trust proxy");
     app.use((0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
         if (mongoose_1.default.ConnectionStates.disconnected ||
