@@ -1,14 +1,8 @@
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import User from "../models/User.Model";
 import { ErrorHandler } from "../lib/errorHandler";
-import {
-  LoginUserSchema,
-  RegisterUserSchema,
-} from "../lib/validation/userValidationSchema";
-import {
-  validateLoginUser,
-  validateRegisterUser,
-} from "../lib/validation/validateUser";
+import { RegisterUserSchema } from "../lib/validation/userValidationSchema";
+import { validateRegisterUser } from "../lib/validation/validateUser";
 import { messages } from "../lib/messages";
 import { uploadProfilePicture } from "../lib/cloudinary";
 import { sendToken } from "../lib/sendToken";
@@ -52,26 +46,24 @@ export const logout = catchAsyncError(async (req, res) => {
   res.status(200).json({ message: messages.logout_succcess });
 });
 
-export const searchUsers = catchAsyncError<{ search: string }>(
-  async (req, res, next) => {
-    const { search } = req.params;
-    if (!search) {
-      return next(
-        new ErrorHandler("Provide search query to search users", 400)
-      );
-    }
+export const searchUsers = catchAsyncError<
+  unknown,
+  unknown,
+  unknown,
+  { search?: string }
+>(async (req, res) => {
+  const search = req.query.search || "";
 
-    const users = await User.find({
-      $or: [
-        {
-          name: { $regex: search, $options: "i" },
-        },
-        {
-          email: { $regex: search, $options: "i" },
-        },
-      ],
-    });
+  const users = await User.find({
+    $or: [
+      {
+        name: { $regex: search, $options: "i" },
+      },
+      {
+        email: { $regex: search, $options: "i" },
+      },
+    ],
+  });
 
-    res.status(200).json({ users });
-  }
-);
+  res.status(200).json({ users });
+});

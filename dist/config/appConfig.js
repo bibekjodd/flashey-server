@@ -28,20 +28,26 @@ function initialConfig(app) {
     (0, cloudinary_1.configureCloudinary)();
     app.use(express_1.default.json({ limit: "2mb" }));
     app.use(express_1.default.urlencoded({ extended: true }));
-    (0, localAuth_1.initializeLocalAuth)();
-    (0, googlAuth_1.initializeGoogleAuth)();
     app.use((0, express_session_1.default)({
         secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
+        cookie: {
+            secure: process.env.NODE_ENV === "development" ? false : true,
+            httpOnly: process.env.NODE_ENV === "development" ? false : true,
+            sameSite: process.env.NODE_ENV === "development" ? "lax" : "none",
+            maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        },
     }));
-    app.use(passport_1.default.initialize());
-    app.use(passport_1.default.session());
+    app.enable("trust proxy");
     app.use((0, cors_1.default)({
         origin: process.env.FRONTEND_URL.split(" ") || [],
         credentials: true,
     }));
-    app.enable("trust proxy");
+    (0, localAuth_1.initializeLocalAuth)();
+    (0, googlAuth_1.initializeGoogleAuth)();
+    app.use(passport_1.default.initialize());
+    app.use(passport_1.default.session());
     app.use((0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
         if (mongoose_1.default.ConnectionStates.disconnected ||
             mongoose_1.default.ConnectionStates.uninitialized ||

@@ -14,7 +14,7 @@ const router = express.Router();
 router.post("/register", createUser);
 router.get("/profile", isAuthenticated, myProfile);
 router.get("/logout", logout);
-router.get("/users/:search", isAuthenticated, searchUsers);
+router.get("/users", isAuthenticated, searchUsers);
 
 router.post("/login", passport.authenticate("local"), (req, res, next) => {
   if (!req.user) {

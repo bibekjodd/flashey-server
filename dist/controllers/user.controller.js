@@ -42,11 +42,8 @@ exports.logout = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
     });
     res.status(200).json({ message: messages_1.messages.logout_succcess });
 });
-exports.searchUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
-    const { search } = req.params;
-    if (!search) {
-        return next(new errorHandler_1.ErrorHandler("Provide search query to search users", 400));
-    }
+exports.searchUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
+    const search = req.query.search || "";
     const users = await User_Model_1.default.find({
         $or: [
             {

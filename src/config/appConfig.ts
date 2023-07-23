@@ -27,27 +27,33 @@ export default function initialConfig(app: Express) {
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
 
-  initializeLocalAuth();
-  initializeGoogleAuth();
-
   app.use(
     expressSession({
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "development" ? false : true,
+        httpOnly: process.env.NODE_ENV === "development" ? false : true,
+        sameSite: process.env.NODE_ENV === "development" ? "lax" : "none",
+        maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      },
     })
   );
-
-  app.use(passport.initialize());
-  app.use(passport.session());
-
+  app.enable("trust proxy");
   app.use(
     cors({
       origin: process.env.FRONTEND_URL.split(" ") || [],
       credentials: true,
     })
   );
-  app.enable("trust proxy");
+
+  initializeLocalAuth();
+  initializeGoogleAuth();
+
+  app.use(passport.initialize());
+  app.use(passport.session());
+
   app.use(
     catchAsyncError(async (req, res, next) => {
       if (
