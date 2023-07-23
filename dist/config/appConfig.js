@@ -35,8 +35,7 @@ function initialConfig(app) {
         cookie: {
             secure: process.env.NODE_ENV === "development" ? false : true,
             httpOnly: process.env.NODE_ENV === "development" ? false : true,
-            sameSite: process.env.NODE_ENV === "development" ? "lax" : "none",
-            maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            sameSite: process.env.NODE_ENV === "development" ? false : "none",
         },
     }));
     app.enable("trust proxy");
@@ -44,10 +43,11 @@ function initialConfig(app) {
         origin: process.env.FRONTEND_URL.split(" ") || [],
         credentials: true,
     }));
-    (0, localAuth_1.initializeLocalAuth)();
-    (0, googlAuth_1.initializeGoogleAuth)();
+    app.use(passport_1.default.authenticate("session"));
     app.use(passport_1.default.initialize());
     app.use(passport_1.default.session());
+    (0, localAuth_1.initializeLocalAuth)();
+    (0, googlAuth_1.initializeGoogleAuth)();
     app.use((0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
         if (mongoose_1.default.ConnectionStates.disconnected ||
             mongoose_1.default.ConnectionStates.uninitialized ||

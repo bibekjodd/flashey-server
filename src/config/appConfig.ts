@@ -1,6 +1,6 @@
 import validateEnv from "../lib/validateEnv";
 import express, { Express } from "express";
-import expressSession from "express-session";
+import session from "express-session";
 import { connectDatabase } from "./database";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import mongoose from "mongoose";
@@ -28,15 +28,15 @@ export default function initialConfig(app: Express) {
   app.use(express.urlencoded({ extended: true }));
 
   app.use(
-    expressSession({
+    session({
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+
       cookie: {
         secure: process.env.NODE_ENV === "development" ? false : true,
         httpOnly: process.env.NODE_ENV === "development" ? false : true,
-        sameSite: process.env.NODE_ENV === "development" ? "lax" : "none",
-        maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        sameSite: process.env.NODE_ENV === "development" ? false : "none",
       },
     })
   );
@@ -48,11 +48,12 @@ export default function initialConfig(app: Express) {
     })
   );
 
-  initializeLocalAuth();
-  initializeGoogleAuth();
-
+  app.use(passport.authenticate("session"));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  initializeLocalAuth();
+  initializeGoogleAuth();
 
   app.use(
     catchAsyncError(async (req, res, next) => {
