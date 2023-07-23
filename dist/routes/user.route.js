@@ -24,10 +24,15 @@ router.post("/login", passport_1.default.authenticate("local"), (req, res, next)
 });
 router.get("/login/google", passport_1.default.authenticate("google", {
     scope: ["profile", "email"],
-    successRedirect: process.env.WEB_FRONTEND_URL,
-}));
-router.get("/callback/google", passport_1.default.authenticate("google", {
-    failureRedirect: "/",
-    successRedirect: process.env.WEB_FRONTEND_URL,
-}));
+}), (req, res, next) => {
+    // @ts-ignore
+    req.session.origin = req.query.origin;
+    next();
+});
+router.get("/callback/google", passport_1.default.authenticate("google"), (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ message: messages_1.messages.unauthenticated });
+    }
+    res.send(`<h3  style="font-family:sans-serif;" >You can now get back to <a href=${process.env.WEB_FRONTEND_URL}>flashey</a></h3>`);
+});
 exports.default = router;
