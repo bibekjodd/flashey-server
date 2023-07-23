@@ -8,10 +8,16 @@ declare global {
       NODE_ENV: "development" | "production";
       JWT_SECRET: string;
       FRONTEND_URL: string;
+      WEB_FRONTEND_URL: string;
 
       CLOUDINARY_CLOUD_NAME: string;
       CLOUDINARY_API_KEY: string;
       CLOUDINARY_API_SECRET: string;
+
+      GOOGLE_CLIENT_ID: string;
+      GOOGLE_CLIENT_SECRET: string;
+      CALLBACK_URL: string;
+      SESSION_SECRET: string;
     }
   }
 

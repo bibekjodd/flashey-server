@@ -5,12 +5,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const validateEnv_1 = __importDefault(require("../lib/validateEnv"));
 const express_1 = __importDefault(require("express"));
+const express_session_1 = __importDefault(require("express-session"));
 const database_1 = require("./database");
 const catchAsyncError_1 = require("../middlewares/catchAsyncError");
 const mongoose_1 = __importDefault(require("mongoose"));
 const cloudinary_1 = require("../lib/cloudinary");
-const cookie_parser_1 = __importDefault(require("cookie-parser"));
+// import cookieParser from "cookie-parser";
 const cors_1 = __importDefault(require("cors"));
+const passport_1 = __importDefault(require("passport"));
+const googlAuth_1 = require("../lib/auth/googlAuth");
+const localAuth_1 = require("../lib/auth/localAuth");
 /**
  * Initial config for app
  *
@@ -22,10 +26,17 @@ function initialConfig(app) {
     (0, validateEnv_1.default)();
     (0, database_1.connectDatabase)();
     (0, cloudinary_1.configureCloudinary)();
-    // app configs
     app.use(express_1.default.json({ limit: "2mb" }));
     app.use(express_1.default.urlencoded({ extended: true }));
-    app.use((0, cookie_parser_1.default)());
+    (0, localAuth_1.initializeLocalAuth)();
+    (0, googlAuth_1.initializeGoogleAuth)();
+    app.use((0, express_session_1.default)({
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+    }));
+    app.use(passport_1.default.initialize());
+    app.use(passport_1.default.session());
     app.use((0, cors_1.default)({
         origin: process.env.FRONTEND_URL.split(" ") || [],
         credentials: true,

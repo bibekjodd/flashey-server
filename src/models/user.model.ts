@@ -8,15 +8,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Name is mandatory field"],
       trim: true,
-      minLength: [4, "Name must be at least 4 characters"],
+      minLength: [1, "Name must be at least 1 characters"],
       maxLength: [30, "Name should not exceed 30 characters"],
     },
 
     email: {
       type: String,
       required: [true, "Email is mandatory field"],
-      minLength: [4, "Email must be at least 4 characters"],
-      maxLength: [30, "Email should not exceed 30 characters"],
+      maxLength: [50, "Email should not exceed 50 characters"],
       validate: {
         validator: validator.isEmail,
         message: "Must provide valid email",
@@ -30,6 +29,8 @@ const userSchema = new mongoose.Schema(
       minLength: [6, "Password must be at least 6 characters"],
       maxLength: [12, "Password should not exceed 12 characters"],
     },
+
+    googleUser: Boolean,
 
     picture: {
       public_id: String,

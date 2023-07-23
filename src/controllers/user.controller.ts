@@ -11,7 +11,7 @@ import {
 } from "../lib/validation/validateUser";
 import { messages } from "../lib/messages";
 import { uploadProfilePicture } from "../lib/cloudinary";
-import { logoutCookieOptions, sendToken } from "../lib/sendToken";
+import { sendToken } from "../lib/sendToken";
 
 export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
   async (req, res, next) => {
@@ -34,22 +34,6 @@ export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
   }
 );
 
-export const login = catchAsyncError<unknown, unknown, LoginUserSchema>(
-  async (req, res, next) => {
-    validateLoginUser(req.body);
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return next(new ErrorHandler(messages.invalid_creditials, 404));
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch)
-      return next(new ErrorHandler(messages.invalid_creditials, 400));
-
-    sendToken(res, user);
-  }
-);
-
 export const myProfile = catchAsyncError(async (req, res) => {
   const user = await User.findById({ _id: req.user._id.toString() });
   res.status(200).json({
@@ -58,10 +42,14 @@ export const myProfile = catchAsyncError(async (req, res) => {
 });
 
 export const logout = catchAsyncError(async (req, res) => {
-  res
-    .status(200)
-    .cookie("token", "nothing", logoutCookieOptions)
-    .json({ message: messages.logout_succcess });
+  req.logOut((err) => {
+    if (err) {
+      return res
+        .status(400)
+        .json({ message: "Error occurred while signing out" });
+    }
+  });
+  res.status(200).json({ message: messages.logout_succcess });
 });
 
 export const searchUsers = catchAsyncError<{ search: string }>(

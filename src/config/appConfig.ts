@@ -1,11 +1,15 @@
 import validateEnv from "../lib/validateEnv";
 import express, { Express } from "express";
+import expressSession from "express-session";
 import { connectDatabase } from "./database";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import mongoose from "mongoose";
 import { configureCloudinary } from "../lib/cloudinary";
-import cookieParser from "cookie-parser";
+// import cookieParser from "cookie-parser";
 import cors from "cors";
+import passport from "passport";
+import { initializeGoogleAuth } from "../lib/auth/googlAuth";
+import { initializeLocalAuth } from "../lib/auth/localAuth";
 
 /**
  * Initial config for app
@@ -20,10 +24,23 @@ export default function initialConfig(app: Express) {
 
   configureCloudinary();
 
-  // app configs
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
-  app.use(cookieParser());
+
+  initializeLocalAuth();
+  initializeGoogleAuth();
+
+  app.use(
+    expressSession({
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
+
+  app.use(passport.initialize());
+  app.use(passport.session());
+
   app.use(
     cors({
       origin: process.env.FRONTEND_URL.split(" ") || [],
