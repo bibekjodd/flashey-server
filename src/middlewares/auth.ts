@@ -12,7 +12,7 @@ export const isAuthenticated = catchAsyncError(async (req, res, next) => {
   }
 
   if (!token) {
-    return next(new ErrorHandler(messages.unauthenticated));
+    return next(new ErrorHandler(messages.unauthenticated,400));
   }
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET) as { _id: string };

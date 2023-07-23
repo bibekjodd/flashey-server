@@ -60,7 +60,7 @@ export const myProfile = catchAsyncError(async (req, res) => {
 export const logout = catchAsyncError(async (req, res) => {
   res
     .status(200)
-    .cookie("token", "", logoutCookieOptions)
+    .cookie("token", "nothing", logoutCookieOptions)
     .json({ message: messages.logout_succcess });
 });
 

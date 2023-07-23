@@ -3,14 +3,14 @@ import { IUser } from "../models/User.Model";
 import jwt from "jsonwebtoken";
 
 const cookieOptions: CookieOptions = {
-  expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
   httpOnly: true,
   secure: process.env.NODE_ENV !== "production" ? false : true,
   sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
 };
 
 export const logoutCookieOptions: CookieOptions = {
-  expires: new Date(Date.now()),
+  maxAge: Date.now() + 30 * 24 * 60 * 60 * 1000,
   httpOnly: true,
   secure: process.env.NODE_ENV !== "production" ? false : true,
   sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
