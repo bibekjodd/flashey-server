@@ -33,9 +33,10 @@ function initialConfig(app) {
         resave: false,
         saveUninitialized: false,
         cookie: {
-            secure: process.env.NODE_ENV === "development" ? false : true,
-            httpOnly: process.env.NODE_ENV === "development" ? false : true,
-            sameSite: process.env.NODE_ENV === "development" ? false : "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV !== "production" ? false : true,
+            sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
+            httpOnly: true,
         },
     }));
     app.enable("trust proxy");
