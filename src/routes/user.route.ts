@@ -42,7 +42,23 @@ router.get("/callback/google", passport.authenticate("google"), (req, res) => {
     return res.status(401).json({ message: messages.unauthenticated });
   }
   res.send(
-    `<h3  style="font-family:sans-serif;" >You can now get back to <a href=${process.env.WEB_FRONTEND_URL}>flashey</a></h3>`
+    `<!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Flashey</title>
+      </head>
+      <body>
+        <p>Redirecting to flashey...</p>
+        <script>
+          window.onload = () => {
+            window.open("${process.env.WEB_FRONTEND_URL}", "_self");
+          };
+        </script>
+      </body>
+    </html>
+    `
   );
 });
 
