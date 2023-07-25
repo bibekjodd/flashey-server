@@ -44,15 +44,12 @@ exports.logout = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
 });
 exports.searchUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
     const search = req.query.search || "";
-    const users = await User_Model_1.default.find({
+    let users = await User_Model_1.default.find({
         $or: [
-            {
-                name: { $regex: search, $options: "i" },
-            },
-            {
-                email: { $regex: search, $options: "i" },
-            },
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
         ],
     });
+    users = users.filter((user) => user.email !== req.user.email);
     res.status(200).json({ users });
 });

@@ -90,7 +90,7 @@ export const accessChat = catchAsyncError<{ chatId: string }>(
 );
 
 export const fetchChats = catchAsyncError(async (req, res) => {
-  const chats = await Chat.find({
+  let chats = await Chat.find({
     users: { $elemMatch: { $eq: req.user._id } },
   })
     .populate({ path: "users", select: "name picture email" })
@@ -102,7 +102,30 @@ export const fetchChats = catchAsyncError(async (req, res) => {
       },
     })
     .sort({ updatedAt: "desc" });
-  res.status(200).json({ chats });
+
+  chats = JSON.parse(JSON.stringify(chats));
+
+  const fullChat = [] as any;
+  for (let i = 0; i < chats.length; i++) {
+    const messages = await Message.find({ chat: chats[i]._id.toString() })
+      .populate({
+        path: "reactions",
+        populate: {
+          path: "user",
+          select: "name picture email",
+        },
+      })
+      .populate({ path: "sender", select: "name picture email" })
+      .populate({ path: "viewers", select: "name picture email" }).sort({updatedAt:'desc'})
+
+    const parsedMessages = JSON.parse(JSON.stringify(messages));
+    fullChat.push({
+      ...JSON.parse(JSON.stringify(chats[i])),
+      messages: parsedMessages,
+    });
+  }
+
+  res.status(200).json({ chats: fullChat });
 });
 
 export const createGroupChat = catchAsyncError<

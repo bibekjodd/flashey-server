@@ -77,7 +77,7 @@ exports.accessChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, nex
     return res.status(200).json({ chat, messages });
 });
 exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
-    const chats = await Chat_Model_1.default.find({
+    let chats = await Chat_Model_1.default.find({
         users: { $elemMatch: { $eq: req.user._id } },
     })
         .populate({ path: "users", select: "name picture email" })
@@ -89,7 +89,26 @@ exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => 
         },
     })
         .sort({ updatedAt: "desc" });
-    res.status(200).json({ chats });
+    chats = JSON.parse(JSON.stringify(chats));
+    const fullChat = [];
+    for (let i = 0; i < chats.length; i++) {
+        const messages = await Message_Model_1.default.find({ chat: chats[i]._id.toString() })
+            .populate({
+            path: "reactions",
+            populate: {
+                path: "user",
+                select: "name picture email",
+            },
+        })
+            .populate({ path: "sender", select: "name picture email" })
+            .populate({ path: "viewers", select: "name picture email" }).sort({ updatedAt: 'desc' });
+        const parsedMessages = JSON.parse(JSON.stringify(messages));
+        fullChat.push({
+            ...JSON.parse(JSON.stringify(chats[i])),
+            messages: parsedMessages,
+        });
+    }
+    res.status(200).json({ chats: fullChat });
 });
 exports.createGroupChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
     (0, validateChat_1.validateCreateGroupChat)(req.body);

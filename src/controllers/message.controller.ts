@@ -41,7 +41,6 @@ export const sendMessage = catchAsyncError<
         latestMessage: message._id.toString(),
       },
     });
-
     return res.status(200).json({ message: messages.send_message_success });
   }
 
@@ -51,16 +50,44 @@ export const sendMessage = catchAsyncError<
       return next(new ErrorHandler("Image could not be delivered", 400));
     }
 
-    await Message.create({
+    const message = await Message.create({
       chat: chatId,
       sender: req.user._id.toString(),
       image: { public_id, url },
+      viewers: [req.user._id.toString()],
+    });
+
+    await Chat.findByIdAndUpdate(chat._id.toString(), {
+      $set: {
+        latestMessage: message._id.toString(),
+      },
     });
 
     return res.status(200).json({ message: messages.send_message_success });
   }
 
   res.status(400).json({ message: messages.unexpected_error });
+});
+
+export const updateMessageViewer = catchAsyncError<
+  unknown,
+  unknown,
+  unknown,
+  { messageId: string }
+>(async (req, res, next) => {
+  const viewerId = req.user?._id.toString();
+  const messageId = req.query.messageId;
+  if (!messageId) {
+    return next(new ErrorHandler("Message id is not provided", 400));
+  }
+
+  await Message.findByIdAndUpdate(messageId, {
+    $addToSet: {
+      viewers: viewerId,
+    },
+  });
+
+  res.status(200).json({ message: "Viewers list updated successfully" });
 });
 
 export const addReaction = catchAsyncError<
@@ -125,7 +152,6 @@ export const removeReaction = catchAsyncError<{ messageId: string }>(
     message.reactions = message?.reactions.filter(
       (reaction) => reaction.user?.toString() !== req.user._id.toString()
     );
-
 
     await message.save();
 

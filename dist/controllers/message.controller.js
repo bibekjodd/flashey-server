@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeReaction = exports.addReaction = exports.sendMessage = void 0;
+exports.removeReaction = exports.addReaction = exports.updateMessageViewer = exports.sendMessage = void 0;
 const cloudinary_1 = require("../lib/cloudinary");
 const constants_1 = require("../lib/constants");
 const errorHandler_1 = require("../lib/errorHandler");
@@ -43,14 +43,33 @@ exports.sendMessage = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
         if (!public_id && !url) {
             return next(new errorHandler_1.ErrorHandler("Image could not be delivered", 400));
         }
-        await Message_Model_1.default.create({
+        const message = await Message_Model_1.default.create({
             chat: chatId,
             sender: req.user._id.toString(),
             image: { public_id, url },
+            viewers: [req.user._id.toString()],
+        });
+        await Chat_Model_1.default.findByIdAndUpdate(chat._id.toString(), {
+            $set: {
+                latestMessage: message._id.toString(),
+            },
         });
         return res.status(200).json({ message: messages_1.messages.send_message_success });
     }
     res.status(400).json({ message: messages_1.messages.unexpected_error });
+});
+exports.updateMessageViewer = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
+    const viewerId = req.user?._id.toString();
+    const messageId = req.query.messageId;
+    if (!messageId) {
+        return next(new errorHandler_1.ErrorHandler("Message id is not provided", 400));
+    }
+    await Message_Model_1.default.findByIdAndUpdate(messageId, {
+        $addToSet: {
+            viewers: viewerId,
+        },
+    });
+    res.status(200).json({ message: "Viewers list updated successfully" });
 });
 exports.addReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
     const { messageId } = req.params;
