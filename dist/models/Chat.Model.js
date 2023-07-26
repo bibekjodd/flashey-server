@@ -13,6 +13,10 @@ const chatSchema = new mongoose_1.default.Schema({
     },
     isGroupChat: { type: Boolean, default: false },
     groupAdmin: { type: mongoose_1.default.Schema.Types.ObjectId, ref: "User" },
+    image: {
+        public_id: String,
+        url: String,
+    },
 }, { timestamps: true });
 const Chat = mongoose_1.default.model("Chat", chatSchema);
 exports.default = Chat;

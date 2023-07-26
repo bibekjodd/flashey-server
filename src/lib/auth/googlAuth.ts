@@ -31,6 +31,7 @@ export const initializeGoogleAuth = () => {
                 url: pictureUrl,
               },
               password: process.env.SESSION_SECRET.slice(0, 10),
+              googleUser: true,
             });
 
             return done(null, user);

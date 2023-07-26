@@ -10,6 +10,10 @@ const chatSchema = new mongoose.Schema(
     },
     isGroupChat: { type: Boolean, default: false },
     groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    image: {
+      public_id: String,
+      url: String,
+    },
   },
   { timestamps: true }
 );

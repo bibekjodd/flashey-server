@@ -30,7 +30,10 @@ const userSchema = new mongoose.Schema(
       maxLength: [12, "Password should not exceed 12 characters"],
     },
 
-    googleUser: Boolean,
+    googleUser: {
+      type: Boolean,
+      default: false,
+    },
 
     picture: {
       public_id: String,

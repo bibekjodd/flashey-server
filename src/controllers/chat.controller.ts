@@ -1,5 +1,7 @@
+import { uploadProfilePicture } from "../lib/cloudinary";
 import { ErrorHandler } from "../lib/errorHandler";
 import { messages } from "../lib/messages";
+import { CreateGroupChatSchema } from "../lib/validation/chatValidationSchema";
 import { validateCreateGroupChat } from "../lib/validation/validateChat";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import Chat from "../models/Chat.Model";
@@ -43,8 +45,10 @@ export const accessFriendsChat = catchAsyncError<{ friendsId?: string }>(
         .sort({ updatedAt: "desc" });
 
       return res.status(200).json({
-        chat,
-        messages,
+        chat: {
+          ...JSON.parse(JSON.stringify(chat)),
+          messages,
+        },
       });
     }
 
@@ -85,7 +89,12 @@ export const accessChat = catchAsyncError<{ chatId: string }>(
       })
       .sort({ updatedAt: "desc" });
 
-    return res.status(200).json({ chat, messages });
+    return res.status(200).json({
+      chat: {
+        ...JSON.parse(JSON.stringify(chat)),
+        messages,
+      },
+    });
   }
 );
 
@@ -116,7 +125,8 @@ export const fetchChats = catchAsyncError(async (req, res) => {
         },
       })
       .populate({ path: "sender", select: "name picture email" })
-      .populate({ path: "viewers", select: "name picture email" }).sort({updatedAt:'desc'})
+      .populate({ path: "viewers", select: "name picture email" })
+      .sort({ updatedAt: "desc" });
 
     const parsedMessages = JSON.parse(JSON.stringify(messages));
     fullChat.push({
@@ -131,26 +141,40 @@ export const fetchChats = catchAsyncError(async (req, res) => {
 export const createGroupChat = catchAsyncError<
   unknown,
   unknown,
-  { groupName: string; users: string[] }
+  CreateGroupChatSchema
 >(async (req, res, next) => {
   validateCreateGroupChat(req.body);
 
-  const { users, groupName } = req.body;
+  const { users, groupName, image } = req.body;
+  users.push(req.user._id.toString());
+  const includedUsers: string[] = [];
+  const uniqueUsers = users.filter((user) => {
+    if (includedUsers.includes(user)) return false;
 
-  if (!users.includes(req.user._id.toString())) {
-    users.push(req.user._id.toString());
-  }
+    includedUsers.push(user);
+    return true;
+  });
 
   if (users.length < 2) {
     return next(new ErrorHandler(messages.insufficient_users_in_group, 400));
   }
 
-  const chat = await Chat.create({
-    users,
+  const chat = new Chat({
+    users: uniqueUsers,
     name: groupName,
     isGroupChat: true,
     groupAdmin: req.user._id,
   });
+
+  if (image) {
+    const { public_id, url } = await uploadProfilePicture(image);
+    chat.image = {
+      public_id,
+      url,
+    };
+  }
+
+  await chat.save();
 
   const fullChat = await Chat.findById(chat.id)
     .populate({ path: "users", select: "name picture email" })

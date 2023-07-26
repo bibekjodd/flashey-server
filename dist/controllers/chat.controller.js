@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renameGroup = exports.removeFromGroup = exports.addToGroup = exports.createGroupChat = exports.fetchChats = exports.accessChat = exports.accessFriendsChat = void 0;
+const cloudinary_1 = require("../lib/cloudinary");
 const errorHandler_1 = require("../lib/errorHandler");
 const messages_1 = require("../lib/messages");
 const validateChat_1 = require("../lib/validation/validateChat");
@@ -42,8 +43,10 @@ exports.accessFriendsChat = (0, catchAsyncError_1.catchAsyncError)(async (req, r
         })
             .sort({ updatedAt: "desc" });
         return res.status(200).json({
-            chat,
-            messages,
+            chat: {
+                ...JSON.parse(JSON.stringify(chat)),
+                messages,
+            },
         });
     }
     const newChat = await (await Chat_Model_1.default.create({
@@ -74,7 +77,12 @@ exports.accessChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, nex
         },
     })
         .sort({ updatedAt: "desc" });
-    return res.status(200).json({ chat, messages });
+    return res.status(200).json({
+        chat: {
+            ...JSON.parse(JSON.stringify(chat)),
+            messages,
+        },
+    });
 });
 exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
     let chats = await Chat_Model_1.default.find({
@@ -101,7 +109,8 @@ exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => 
             },
         })
             .populate({ path: "sender", select: "name picture email" })
-            .populate({ path: "viewers", select: "name picture email" }).sort({ updatedAt: 'desc' });
+            .populate({ path: "viewers", select: "name picture email" })
+            .sort({ updatedAt: "desc" });
         const parsedMessages = JSON.parse(JSON.stringify(messages));
         fullChat.push({
             ...JSON.parse(JSON.stringify(chats[i])),
@@ -112,19 +121,32 @@ exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => 
 });
 exports.createGroupChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
     (0, validateChat_1.validateCreateGroupChat)(req.body);
-    const { users, groupName } = req.body;
-    if (!users.includes(req.user._id.toString())) {
-        users.push(req.user._id.toString());
-    }
+    const { users, groupName, image } = req.body;
+    users.push(req.user._id.toString());
+    const includedUsers = [];
+    const uniqueUsers = users.filter((user) => {
+        if (includedUsers.includes(user))
+            return false;
+        includedUsers.push(user);
+        return true;
+    });
     if (users.length < 2) {
         return next(new errorHandler_1.ErrorHandler(messages_1.messages.insufficient_users_in_group, 400));
     }
-    const chat = await Chat_Model_1.default.create({
-        users,
+    const chat = new Chat_Model_1.default({
+        users: uniqueUsers,
         name: groupName,
         isGroupChat: true,
         groupAdmin: req.user._id,
     });
+    if (image) {
+        const { public_id, url } = await (0, cloudinary_1.uploadProfilePicture)(image);
+        chat.image = {
+            public_id,
+            url,
+        };
+    }
+    await chat.save();
     const fullChat = await Chat_Model_1.default.findById(chat.id)
         .populate({ path: "users", select: "name picture email" })
         .populate({ path: "latestMessage", select: "name picture email" })
