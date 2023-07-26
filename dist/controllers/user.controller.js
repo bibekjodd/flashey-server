@@ -33,6 +33,7 @@ exports.myProfile = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
     });
 });
 exports.logout = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
+    // @ts-ignore
     req.logOut((err) => {
         if (err) {
             return res

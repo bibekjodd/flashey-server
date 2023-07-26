@@ -24,39 +24,29 @@ exports.sendMessage = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
     if (!chat.users.includes(req.user._id.toString())) {
         return next(new errorHandler_1.ErrorHandler("You do not belong to this chat", 400));
     }
+    const message = new Message_Model_1.default({
+        chat: chatId,
+        sender: req.user._id.toString(),
+        viewers: [req.user._id.toString()],
+    });
     if (text) {
-        const message = await Message_Model_1.default.create({
-            chat: chatId,
-            text,
-            sender: req.user._id.toString(),
-            viewers: [req.user._id.toString()],
-        });
-        await Chat_Model_1.default.findByIdAndUpdate(chat._id.toString(), {
-            $set: {
-                latestMessage: message._id.toString(),
-            },
-        });
-        return res.status(200).json({ message: messages_1.messages.send_message_success });
+        message.text = text;
     }
     if (image) {
         const { public_id, url } = await (0, cloudinary_1.uploadMessagePicture)(image);
-        if (!public_id && !url) {
-            return next(new errorHandler_1.ErrorHandler("Image could not be delivered", 400));
-        }
-        const message = await Message_Model_1.default.create({
-            chat: chatId,
-            sender: req.user._id.toString(),
-            image: { public_id, url },
-            viewers: [req.user._id.toString()],
-        });
-        await Chat_Model_1.default.findByIdAndUpdate(chat._id.toString(), {
-            $set: {
-                latestMessage: message._id.toString(),
-            },
-        });
-        return res.status(200).json({ message: messages_1.messages.send_message_success });
+        message.image = {
+            public_id,
+            url,
+        };
     }
-    res.status(400).json({ message: messages_1.messages.unexpected_error });
+    await message.save();
+    pusher.trigger(chat._id.toString(), constants_1.EVENTS.MESSAGE_SENT, message);
+    await Chat_Model_1.default.findByIdAndUpdate(chatId, {
+        $set: {
+            latestMessage: message._id.toString(),
+        },
+    });
+    return res.status(200).json({ message: messages_1.messages.send_message_success });
 });
 exports.updateMessageViewer = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
     const viewerId = req.user?._id.toString();
@@ -64,6 +54,7 @@ exports.updateMessageViewer = (0, catchAsyncError_1.catchAsyncError)(async (req,
     if (!messageId) {
         return next(new errorHandler_1.ErrorHandler("Message id is not provided", 400));
     }
+    pusher.trigger(messageId, constants_1.EVENTS.MESSAGE_VIEWED, { viewerId, messageId });
     await Message_Model_1.default.findByIdAndUpdate(messageId, {
         $addToSet: {
             viewers: viewerId,
@@ -104,14 +95,26 @@ exports.addReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
         });
     }
     await message.save();
+    pusher.trigger(messageId, constants_1.EVENTS.REACTION_ADDED, {
+        messageId,
+        reaction: {
+            userId: req.user._id.toString(),
+            value: req.body.reaction,
+        },
+    });
     res.status(200).json({ message: "Reaction updated successfully" });
 });
 exports.removeReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
-    const message = await Message_Model_1.default.findById(req.params.messageId);
+    const messageId = req.params.messageId;
+    const message = await Message_Model_1.default.findById(messageId);
     if (!message) {
         return next(new errorHandler_1.ErrorHandler("Message is deleted or does not exist", 400));
     }
     message.reactions = message?.reactions.filter((reaction) => reaction.user?.toString() !== req.user._id.toString());
     await message.save();
+    pusher.trigger(messageId, constants_1.EVENTS.REACTION_REMOVED, {
+        messageId,
+        userId: req.user._id.toString(),
+    });
     res.status(200).json({ message: "Reaction removed successfully" });
 });

@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const user_controller_1 = require("../controllers/user.controller");
 const auth_1 = require("../middlewares/auth");
+// @ts-ignore
 const passport_1 = __importDefault(require("passport"));
 const errorHandler_1 = require("../lib/errorHandler");
 const messages_1 = require("../lib/messages");

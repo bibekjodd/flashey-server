@@ -1,4 +1,6 @@
+// @ts-ignore
 import passport from "passport";
+// @ts-ignore
 import { Strategy } from "passport-google-oauth20";
 import User from "../../models/User.Model";
 
@@ -10,6 +12,7 @@ export const initializeGoogleAuth = () => {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: process.env.CALLBACK_URL,
       },
+      // @ts-ignore
       async (accessToken, refreshToken, profile, done) => {
         const name = profile.displayName;
         const email = profile.emails?.at(0)?.value || "";
@@ -43,11 +46,13 @@ export const initializeGoogleAuth = () => {
     )
   );
 
+  // @ts-ignore
   passport.serializeUser((user, done) => {
     // @ts-ignore
     return done(null, user.id);
   });
 
+  // @ts-ignore
   passport.deserializeUser(async (id, done) => {
     try {
       const user = await User.findById(id);

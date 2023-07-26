@@ -7,9 +7,11 @@ import mongoose from "mongoose";
 import { configureCloudinary } from "../lib/cloudinary";
 // import cookieParser from "cookie-parser";
 import cors from "cors";
+// @ts-ignore
 import passport from "passport";
 import { initializeGoogleAuth } from "../lib/auth/googlAuth";
 import { initializeLocalAuth } from "../lib/auth/localAuth";
+import initializePusher from "./pusher";
 
 /**
  * Initial config for app
@@ -26,6 +28,7 @@ export default function initialConfig(app: Express) {
 
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
+  initializePusher();
 
   app.use(
     session({

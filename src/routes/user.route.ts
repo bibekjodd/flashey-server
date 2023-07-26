@@ -6,6 +6,7 @@ import {
   searchUsers,
 } from "../controllers/user.controller";
 import { isAuthenticated } from "../middlewares/auth";
+// @ts-ignore
 import passport from "passport";
 import { ErrorHandler } from "../lib/errorHandler";
 import { messages } from "../lib/messages";

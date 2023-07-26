@@ -36,6 +36,7 @@ export const myProfile = catchAsyncError(async (req, res) => {
 });
 
 export const logout = catchAsyncError(async (req, res) => {
+  // @ts-ignore
   req.logOut((err) => {
     if (err) {
       return res

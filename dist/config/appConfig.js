@@ -12,9 +12,11 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const cloudinary_1 = require("../lib/cloudinary");
 // import cookieParser from "cookie-parser";
 const cors_1 = __importDefault(require("cors"));
+// @ts-ignore
 const passport_1 = __importDefault(require("passport"));
 const googlAuth_1 = require("../lib/auth/googlAuth");
 const localAuth_1 = require("../lib/auth/localAuth");
+const pusher_1 = __importDefault(require("./pusher"));
 /**
  * Initial config for app
  *
@@ -28,6 +30,7 @@ function initialConfig(app) {
     (0, cloudinary_1.configureCloudinary)();
     app.use(express_1.default.json({ limit: "2mb" }));
     app.use(express_1.default.urlencoded({ extended: true }));
+    (0, pusher_1.default)();
     app.use((0, express_session_1.default)({
         secret: process.env.SESSION_SECRET,
         resave: false,
