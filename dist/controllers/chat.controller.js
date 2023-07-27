@@ -31,17 +31,7 @@ exports.accessFriendsChat = (0, catchAsyncError_1.catchAsyncError)(async (req, r
     if (chat) {
         const messages = await Message_Model_1.default.find({
             chat: chat._id.toString(),
-        })
-            .populate({ path: "sender", select: "name picture email" })
-            .populate({ path: "viewers", select: "name picture email" })
-            .populate({
-            path: "reactions",
-            populate: {
-                path: "user",
-                select: "name picture email",
-            },
-        })
-            .sort({ updatedAt: "desc" });
+        }).sort({ updatedAt: "desc" });
         return res.status(200).json({
             chat: {
                 ...JSON.parse(JSON.stringify(chat)),
@@ -66,17 +56,7 @@ exports.accessChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, nex
     }
     const messages = await Message_Model_1.default.find({
         chat: chat._id.toString(),
-    })
-        .populate({ path: "sender", select: "name picture email" })
-        .populate({ path: "viewers", select: "name picture email" })
-        .populate({
-        path: "reactions",
-        populate: {
-            path: "user",
-            select: "name picture email",
-        },
-    })
-        .sort({ updatedAt: "desc" });
+    }).sort({ updatedAt: "desc" });
     return res.status(200).json({
         chat: {
             ...JSON.parse(JSON.stringify(chat)),
@@ -89,28 +69,11 @@ exports.fetchChats = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => 
         users: { $elemMatch: { $eq: req.user._id } },
     })
         .populate({ path: "users", select: "name picture email" })
-        .populate({
-        path: "latestMessage",
-        populate: {
-            path: "sender",
-            select: "name picture email",
-        },
-    })
         .sort({ updatedAt: "desc" });
     chats = JSON.parse(JSON.stringify(chats));
     const fullChat = [];
     for (let i = 0; i < chats.length; i++) {
-        const messages = await Message_Model_1.default.find({ chat: chats[i]._id.toString() })
-            .populate({
-            path: "reactions",
-            populate: {
-                path: "user",
-                select: "name picture email",
-            },
-        })
-            .populate({ path: "sender", select: "name picture email" })
-            .populate({ path: "viewers", select: "name picture email" })
-            .sort({ updatedAt: "desc" });
+        const messages = await Message_Model_1.default.find({ chat: chats[i]._id.toString() });
         const parsedMessages = JSON.parse(JSON.stringify(messages));
         fullChat.push({
             ...JSON.parse(JSON.stringify(chats[i])),
@@ -147,10 +110,10 @@ exports.createGroupChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res
         };
     }
     await chat.save();
-    const fullChat = await Chat_Model_1.default.findById(chat.id)
-        .populate({ path: "users", select: "name picture email" })
-        .populate({ path: "latestMessage", select: "name picture email" })
-        .populate({ path: "groupAdmin", select: "name picture email" });
+    const fullChat = await Chat_Model_1.default.findById(chat.id).populate({
+        path: "users",
+        select: "name picture email",
+    });
     res.status(200).json({ chat: fullChat });
 });
 exports.addToGroup = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {

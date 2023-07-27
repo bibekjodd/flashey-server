@@ -61,15 +61,22 @@ export const updateMessageViewer = catchAsyncError<
   unknown,
   unknown,
   unknown,
-  { messageId: string }
+  { messageId: string; chatId: string }
 >(async (req, res, next) => {
   const viewerId = req.user?._id.toString();
-  const messageId = req.query.messageId;
+  const { messageId, chatId } = req.query;
   if (!messageId) {
     return next(new ErrorHandler("Message id is not provided", 400));
   }
 
-  pusher.trigger(messageId, EVENTS.MESSAGE_VIEWED, { viewerId, messageId });
+  if (chatId) {
+    pusher.trigger(chatId, EVENTS.MESSAGE_VIEWED, {
+      chatId,
+      viewerId,
+      messageId,
+    });
+  }
+
   await Message.findByIdAndUpdate(messageId, {
     $addToSet: {
       viewers: viewerId,
@@ -82,10 +89,12 @@ export const updateMessageViewer = catchAsyncError<
 export const addReaction = catchAsyncError<
   { messageId: string },
   unknown,
-  { reaction: string }
+  { reaction: string },
+  { chatId: string }
 >(async (req, res, next) => {
   const { messageId } = req.params;
   const { reaction } = req.body;
+  const { chatId } = req.query;
 
   if (!reaction || !validReactions.includes(reaction)) {
     return next(new ErrorHandler("Invalid reaction", 400));
@@ -125,35 +134,45 @@ export const addReaction = catchAsyncError<
   }
 
   await message.save();
-  pusher.trigger(messageId, EVENTS.REACTION_ADDED, {
-    messageId,
-    reaction: {
-      userId: req.user._id.toString(),
-      value: req.body.reaction,
-    },
-  });
+  if (chatId) {
+    pusher.trigger(chatId, EVENTS.REACTION_ADDED, {
+      chatId,
+      messageId,
+      reaction: {
+        userId: req.user._id.toString(),
+        value: req.body.reaction,
+      },
+    });
+  }
+
   res.status(200).json({ message: "Reaction updated successfully" });
 });
 
-export const removeReaction = catchAsyncError<{ messageId: string }>(
-  async (req, res, next) => {
-    const messageId = req.params.messageId;
-    const message = await Message.findById(messageId);
-    if (!message) {
-      return next(
-        new ErrorHandler("Message is deleted or does not exist", 400)
-      );
-    }
+export const removeReaction = catchAsyncError<
+  { messageId: string },
+  unknown,
+  unknown,
+  { chatId: string }
+>(async (req, res, next) => {
+  const messageId = req.params.messageId;
+  const message = await Message.findById(messageId);
+  const { chatId } = req.query;
+  if (!message) {
+    return next(new ErrorHandler("Message is deleted or does not exist", 400));
+  }
 
-    message.reactions = message?.reactions.filter(
-      (reaction) => reaction.user?.toString() !== req.user._id.toString()
-    );
+  message.reactions = message?.reactions.filter(
+    (reaction) => reaction.user?.toString() !== req.user._id.toString()
+  );
 
-    await message.save();
-    pusher.trigger(messageId, EVENTS.REACTION_REMOVED, {
+  await message.save();
+  if (chatId) {
+    pusher.trigger(chatId, EVENTS.REACTION_REMOVED, {
+      chatId,
       messageId,
       userId: req.user._id.toString(),
     });
-    res.status(200).json({ message: "Reaction removed successfully" });
   }
-);
+
+  res.status(200).json({ message: "Reaction removed successfully" });
+});

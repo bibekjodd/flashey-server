@@ -4,6 +4,7 @@ import {
   logout,
   myProfile,
   searchUsers,
+  suggestedUsers,
 } from "../controllers/user.controller";
 import { isAuthenticated } from "../middlewares/auth";
 // @ts-ignore
@@ -16,6 +17,7 @@ router.post("/register", createUser);
 router.get("/profile", isAuthenticated, myProfile);
 router.get("/logout", logout);
 router.get("/users", isAuthenticated, searchUsers);
+router.get("/suggestedusers", isAuthenticated, suggestedUsers);
 
 router.post("/login", passport.authenticate("local"), (req, res, next) => {
   if (!req.user) {

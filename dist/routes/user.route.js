@@ -15,6 +15,7 @@ router.post("/register", user_controller_1.createUser);
 router.get("/profile", auth_1.isAuthenticated, user_controller_1.myProfile);
 router.get("/logout", user_controller_1.logout);
 router.get("/users", auth_1.isAuthenticated, user_controller_1.searchUsers);
+router.get("/suggestedusers", auth_1.isAuthenticated, user_controller_1.suggestedUsers);
 router.post("/login", passport_1.default.authenticate("local"), (req, res, next) => {
     if (!req.user) {
         return next(new errorHandler_1.ErrorHandler(messages_1.messages.unauthenticated, 401));

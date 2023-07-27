@@ -66,3 +66,10 @@ export const searchUsers = catchAsyncError<
 
   res.status(200).json({ users });
 });
+
+export const suggestedUsers = catchAsyncError(async (req, res) => {
+  const users = await User.find({
+    _id: { $ne: req.user._id.toString() },
+  }).limit(10);
+  res.status(200).json({ users });
+});

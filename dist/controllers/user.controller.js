@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchUsers = exports.logout = exports.myProfile = exports.createUser = void 0;
+exports.suggestedUsers = exports.searchUsers = exports.logout = exports.myProfile = exports.createUser = void 0;
 const catchAsyncError_1 = require("../middlewares/catchAsyncError");
 const User_Model_1 = __importDefault(require("../models/User.Model"));
 const errorHandler_1 = require("../lib/errorHandler");
@@ -52,5 +52,11 @@ exports.searchUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res) =>
         ],
     });
     users = users.filter((user) => user.email !== req.user.email);
+    res.status(200).json({ users });
+});
+exports.suggestedUsers = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
+    const users = await User_Model_1.default.find({
+        _id: { $ne: req.user._id.toString() },
+    }).limit(10);
     res.status(200).json({ users });
 });
