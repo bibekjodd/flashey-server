@@ -39,8 +39,8 @@ exports.sendMessage = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
             url,
         };
     }
-    await message.save();
     pusher.trigger(chat._id.toString(), constants_1.EVENTS.MESSAGE_SENT, message);
+    await message.save();
     await Chat_Model_1.default.findByIdAndUpdate(chatId, {
         $set: {
             latestMessage: message._id.toString(),
@@ -101,7 +101,6 @@ exports.addReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
             value: req.body.reaction,
         });
     }
-    await message.save();
     if (chatId) {
         pusher.trigger(chatId, constants_1.EVENTS.REACTION_ADDED, {
             chatId,
@@ -112,6 +111,7 @@ exports.addReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
             },
         });
     }
+    await message.save();
     res.status(200).json({ message: "Reaction updated successfully" });
 });
 exports.removeReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
@@ -122,7 +122,6 @@ exports.removeReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res,
         return next(new errorHandler_1.ErrorHandler("Message is deleted or does not exist", 400));
     }
     message.reactions = message?.reactions.filter((reaction) => reaction.user?.toString() !== req.user._id.toString());
-    await message.save();
     if (chatId) {
         pusher.trigger(chatId, constants_1.EVENTS.REACTION_REMOVED, {
             chatId,
@@ -130,5 +129,6 @@ exports.removeReaction = (0, catchAsyncError_1.catchAsyncError)(async (req, res,
             userId: req.user._id.toString(),
         });
     }
+    await message.save();
     res.status(200).json({ message: "Reaction removed successfully" });
 });

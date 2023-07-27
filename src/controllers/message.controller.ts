@@ -45,8 +45,8 @@ export const sendMessage = catchAsyncError<
     };
   }
 
-  await message.save();
   pusher.trigger(chat._id.toString(), EVENTS.MESSAGE_SENT, message);
+  await message.save();
 
   await Chat.findByIdAndUpdate(chatId, {
     $set: {
@@ -133,7 +133,6 @@ export const addReaction = catchAsyncError<
     });
   }
 
-  await message.save();
   if (chatId) {
     pusher.trigger(chatId, EVENTS.REACTION_ADDED, {
       chatId,
@@ -144,6 +143,7 @@ export const addReaction = catchAsyncError<
       },
     });
   }
+  await message.save();
 
   res.status(200).json({ message: "Reaction updated successfully" });
 });
@@ -165,7 +165,6 @@ export const removeReaction = catchAsyncError<
     (reaction) => reaction.user?.toString() !== req.user._id.toString()
   );
 
-  await message.save();
   if (chatId) {
     pusher.trigger(chatId, EVENTS.REACTION_REMOVED, {
       chatId,
@@ -174,5 +173,6 @@ export const removeReaction = catchAsyncError<
     });
   }
 
+  await message.save();
   res.status(200).json({ message: "Reaction removed successfully" });
 });
