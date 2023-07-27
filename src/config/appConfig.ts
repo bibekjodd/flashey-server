@@ -40,7 +40,6 @@ export default function initialConfig(app: Express) {
         secure: process.env.NODE_ENV !== "production" ? false : true,
         sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
         httpOnly: true,
-        maxAge: 365 * 24 * 60 * 60 * 1000,
       },
     })
   );

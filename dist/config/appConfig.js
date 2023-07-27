@@ -39,7 +39,6 @@ function initialConfig(app) {
             secure: process.env.NODE_ENV !== "production" ? false : true,
             sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
             httpOnly: true,
-            maxAge: 365 * 24 * 60 * 60 * 1000,
         },
     }));
     app.enable("trust proxy");
