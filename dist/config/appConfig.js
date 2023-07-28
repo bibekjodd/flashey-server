@@ -5,17 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const validateEnv_1 = __importDefault(require("../lib/validateEnv"));
 const express_1 = __importDefault(require("express"));
-const express_session_1 = __importDefault(require("express-session"));
 const database_1 = require("./database");
 const catchAsyncError_1 = require("../middlewares/catchAsyncError");
 const mongoose_1 = __importDefault(require("mongoose"));
 const cloudinary_1 = require("../lib/cloudinary");
-// import cookieParser from "cookie-parser";
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const cors_1 = __importDefault(require("cors"));
-// @ts-ignore
-const passport_1 = __importDefault(require("passport"));
-const googlAuth_1 = require("../lib/auth/googlAuth");
-const localAuth_1 = require("../lib/auth/localAuth");
 const pusher_1 = __importDefault(require("./pusher"));
 /**
  * Initial config for app
@@ -30,28 +25,13 @@ function initialConfig(app) {
     (0, cloudinary_1.configureCloudinary)();
     app.use(express_1.default.json({ limit: "2mb" }));
     app.use(express_1.default.urlencoded({ extended: true }));
+    app.use((0, cookie_parser_1.default)());
     (0, pusher_1.default)();
-    app.use((0, express_session_1.default)({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            secure: process.env.NODE_ENV !== "production" ? false : true,
-            sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
-            httpOnly: true,
-            maxAge: 30 * 24 * 60 * 60 * 1000,
-        },
-    }));
     app.enable("trust proxy");
     app.use((0, cors_1.default)({
         origin: process.env.FRONTEND_URL.split(" ") || [],
         credentials: true,
     }));
-    app.use(passport_1.default.authenticate("session"));
-    app.use(passport_1.default.initialize());
-    app.use(passport_1.default.session());
-    (0, localAuth_1.initializeLocalAuth)();
-    (0, googlAuth_1.initializeGoogleAuth)();
     app.use((0, catchAsyncError_1.catchAsyncError)(async (req, res, next) => {
         if (mongoose_1.default.ConnectionStates.disconnected ||
             mongoose_1.default.ConnectionStates.uninitialized ||

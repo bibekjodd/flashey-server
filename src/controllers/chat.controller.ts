@@ -32,7 +32,7 @@ export const accessFriendsChat = catchAsyncError<{ friendsId?: string }>(
     if (chat) {
       const messages = await Message.find({
         chat: chat._id.toString(),
-      }).sort({ updatedAt: "desc" });
+      }).sort({ createdAt: "desc" });
 
       return res.status(200).json({
         chat: {
@@ -67,7 +67,7 @@ export const accessChat = catchAsyncError<{ chatId: string }>(
 
     const messages = await Message.find({
       chat: chat._id.toString(),
-    }).sort({ updatedAt: "desc" });
+    }).sort({ createdAt: "desc" });
 
     return res.status(200).json({
       chat: {

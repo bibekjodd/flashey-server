@@ -1,16 +1,11 @@
 import validateEnv from "../lib/validateEnv";
 import express, { Express } from "express";
-import session from "express-session";
 import { connectDatabase } from "./database";
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import mongoose from "mongoose";
 import { configureCloudinary } from "../lib/cloudinary";
-// import cookieParser from "cookie-parser";
+import cookieParser from "cookie-parser";
 import cors from "cors";
-// @ts-ignore
-import passport from "passport";
-import { initializeGoogleAuth } from "../lib/auth/googlAuth";
-import { initializeLocalAuth } from "../lib/auth/localAuth";
 import initializePusher from "./pusher";
 
 /**
@@ -28,22 +23,9 @@ export default function initialConfig(app: Express) {
 
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
   initializePusher();
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-
-      cookie: {
-        secure: process.env.NODE_ENV !== "production" ? false : true,
-        sameSite: process.env.NODE_ENV !== "production" ? "lax" : "none",
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      },
-    })
-  );
   app.enable("trust proxy");
   app.use(
     cors({
@@ -51,13 +33,6 @@ export default function initialConfig(app: Express) {
       credentials: true,
     })
   );
-
-  app.use(passport.authenticate("session"));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  initializeLocalAuth();
-  initializeGoogleAuth();
 
   app.use(
     catchAsyncError(async (req, res, next) => {

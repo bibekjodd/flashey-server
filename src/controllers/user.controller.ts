@@ -1,11 +1,17 @@
 import { catchAsyncError } from "../middlewares/catchAsyncError";
 import User from "../models/User.Model";
 import { ErrorHandler } from "../lib/errorHandler";
-import { RegisterUserSchema } from "../lib/validation/userValidationSchema";
-import { validateRegisterUser } from "../lib/validation/validateUser";
+import {
+  LoginUserSchema,
+  RegisterUserSchema,
+} from "../lib/validation/userValidationSchema";
+import {
+  validateLoginUser,
+  validateRegisterUser,
+} from "../lib/validation/validateUser";
 import { messages } from "../lib/messages";
 import { uploadProfilePicture } from "../lib/cloudinary";
-import { sendToken } from "../lib/sendToken";
+import { cookieOptions, sendToken } from "../lib/sendToken";
 
 export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
   async (req, res, next) => {
@@ -24,7 +30,24 @@ export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
       picture: { public_id, url },
     });
 
-    sendToken(res, newUser);
+    sendToken(res, newUser, 201);
+  }
+);
+
+export const login = catchAsyncError<unknown, unknown, LoginUserSchema>(
+  async (req, res, next) => {
+    validateLoginUser(req.body);
+    const { email, password } = req.body;
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      return next(new ErrorHandler(messages.invalid_creditials, 400));
+    }
+
+    const passwordMatches = await user.comparePassword(password);
+    if (!passwordMatches)
+      return next(new ErrorHandler(messages.invalid_creditials, 400));
+
+    sendToken(res, user, 200);
   }
 );
 
@@ -36,15 +59,10 @@ export const myProfile = catchAsyncError(async (req, res) => {
 });
 
 export const logout = catchAsyncError(async (req, res) => {
-  // @ts-ignore
-  req.logOut((err) => {
-    if (err) {
-      return res
-        .status(400)
-        .json({ message: "Error occurred while signing out" });
-    }
-  });
-  res.status(200).json({ message: messages.logout_succcess });
+  res
+    .cookie("token", null, cookieOptions)
+    .status(200)
+    .json({ message: messages.logout_succcess });
 });
 
 export const searchUsers = catchAsyncError<

@@ -31,7 +31,7 @@ exports.accessFriendsChat = (0, catchAsyncError_1.catchAsyncError)(async (req, r
     if (chat) {
         const messages = await Message_Model_1.default.find({
             chat: chat._id.toString(),
-        }).sort({ updatedAt: "desc" });
+        }).sort({ createdAt: "desc" });
         return res.status(200).json({
             chat: {
                 ...JSON.parse(JSON.stringify(chat)),
@@ -56,7 +56,7 @@ exports.accessChat = (0, catchAsyncError_1.catchAsyncError)(async (req, res, nex
     }
     const messages = await Message_Model_1.default.find({
         chat: chat._id.toString(),
-    }).sort({ updatedAt: "desc" });
+    }).sort({ createdAt: "desc" });
     return res.status(200).json({
         chat: {
             ...JSON.parse(JSON.stringify(chat)),
