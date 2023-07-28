@@ -3,8 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.renameGroup = exports.removeFromGroup = exports.addToGroup = exports.createGroupChat = exports.fetchChats = exports.accessChat = exports.accessFriendsChat = void 0;
+exports.typingUpdate = exports.renameGroup = exports.removeFromGroup = exports.addToGroup = exports.createGroupChat = exports.fetchChats = exports.accessChat = exports.accessFriendsChat = void 0;
 const cloudinary_1 = require("../lib/cloudinary");
+const constants_1 = require("../lib/constants");
 const errorHandler_1 = require("../lib/errorHandler");
 const messages_1 = require("../lib/messages");
 const validateChat_1 = require("../lib/validation/validateChat");
@@ -158,4 +159,17 @@ exports.renameGroup = (0, catchAsyncError_1.catchAsyncError)(async (req, res, ne
         return next(new errorHandler_1.ErrorHandler("Group doesn't exist or you don't have sufficient pemissions to perform this action", 400));
     }
     res.status(200).json({ message: "Group renamed successfully" });
+});
+exports.typingUpdate = (0, catchAsyncError_1.catchAsyncError)(async (req, res) => {
+    const { userId, chatId, isTyping } = req.body;
+    if (!userId || !chatId) {
+        return res
+            .status(400)
+            .json({ message: "Can't trigger update without userId and chatId" });
+    }
+    pusher.trigger(chatId, constants_1.EVENTS.TYPING, {
+        chatId,
+        userId,
+        isTyping: !!isTyping,
+    });
 });

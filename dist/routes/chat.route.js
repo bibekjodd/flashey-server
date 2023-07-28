@@ -11,4 +11,5 @@ router.post("/group/create", auth_1.isAuthenticated, chat_controller_1.createGro
 router.put("/group/add", auth_1.isAuthenticated, chat_controller_1.addToGroup);
 router.put("/group/remove", auth_1.isAuthenticated, chat_controller_1.removeFromGroup);
 router.put("/group/rename", auth_1.isAuthenticated, chat_controller_1.renameGroup);
+router.post("/typing", auth_1.isAuthenticated, chat_controller_1.typingUpdate);
 exports.default = router;

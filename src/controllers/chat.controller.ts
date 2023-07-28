@@ -1,4 +1,5 @@
 import { uploadProfilePicture } from "../lib/cloudinary";
+import { EVENTS } from "../lib/constants";
 import { ErrorHandler } from "../lib/errorHandler";
 import { messages } from "../lib/messages";
 import { CreateGroupChatSchema } from "../lib/validation/chatValidationSchema";
@@ -242,4 +243,24 @@ export const renameGroup = catchAsyncError<
   }
 
   res.status(200).json({ message: "Group renamed successfully" });
+});
+
+export const typingUpdate = catchAsyncError<
+  unknown,
+  unknown,
+  { userId?: string; chatId?: string; isTyping: boolean },
+  unknown
+>(async (req, res) => {
+  const { userId, chatId, isTyping } = req.body;
+  if (!userId || !chatId) {
+    return res
+      .status(400)
+      .json({ message: "Can't trigger update without userId and chatId" });
+  }
+
+  pusher.trigger(chatId, EVENTS.TYPING, {
+    chatId,
+    userId,
+    isTyping: !!isTyping,
+  });
 });

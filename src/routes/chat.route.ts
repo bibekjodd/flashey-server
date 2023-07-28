@@ -7,6 +7,7 @@ import {
   fetchChats,
   removeFromGroup,
   renameGroup,
+  typingUpdate,
 } from "../controllers/chat.controller";
 import { isAuthenticated } from "../middlewares/auth";
 
@@ -19,5 +20,6 @@ router.post("/group/create", isAuthenticated, createGroupChat);
 router.put("/group/add", isAuthenticated, addToGroup);
 router.put("/group/remove", isAuthenticated, removeFromGroup);
 router.put("/group/rename", isAuthenticated, renameGroup);
+router.post("/typing", isAuthenticated, typingUpdate);
 
 export default router;
