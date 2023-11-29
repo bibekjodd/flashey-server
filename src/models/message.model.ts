@@ -1,38 +1,38 @@
-import mongoose from "mongoose";
-import { validReactions } from "../lib/constants";
+import mongoose from 'mongoose';
+import { validReactions } from '@/lib/constants';
 
 const messageSchema = new mongoose.Schema(
   {
     text: {
       type: String,
-      trim: true,
+      trim: true
     },
     reactions: [
       {
         user: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
+          ref: 'User'
         },
         value: {
           type: String,
-          enum: validReactions,
-        },
-      },
+          enum: validReactions
+        }
+      }
     ],
 
     image: {
       public_id: String,
-      url: String,
+      url: String
     },
 
     sender: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User'
     },
 
-    viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
-    chat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
+    chat: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat' }
   },
   { timestamps: true }
 );
@@ -41,5 +41,5 @@ interface IMessage
   extends mongoose.InferSchemaType<typeof messageSchema>,
     mongoose.Document {}
 
-const Message = mongoose.model<IMessage>("Message", messageSchema);
+const Message = mongoose.model<IMessage>('Message', messageSchema);
 export default Message;

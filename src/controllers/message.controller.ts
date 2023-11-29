@@ -1,10 +1,10 @@
-import { uploadMessagePicture } from "../lib/cloudinary";
-import { EVENTS, validReactions } from "../lib/constants";
-import { ErrorHandler } from "../lib/errorHandler";
-import { messages } from "../lib/messages";
-import { catchAsyncError } from "../middlewares/catchAsyncError";
-import Chat from "../models/Chat.Model";
-import Message from "../models/Message.Model";
+import { uploadMessagePicture } from '@/lib/cloudinary';
+import { EVENTS, validReactions } from '@/lib/constants';
+import { CustomError } from '@/lib/custom-error';
+import { messages } from '@/lib/messages';
+import { catchAsyncError } from '@/middlewares/catch-async-error';
+import Chat from '@/models/chat.model';
+import Message from '@/models/message.model';
 
 export const sendMessage = catchAsyncError<
   { chatId: string },
@@ -15,23 +15,23 @@ export const sendMessage = catchAsyncError<
   const { text, image } = req.body;
 
   if (!text && !image) {
-    return next(new ErrorHandler("Message must contain text or image", 400));
+    return next(new CustomError('Message must contain text or image', 400));
   }
 
   const chat = await Chat.findById(chatId);
 
   if (!chat) {
-    return next(new ErrorHandler("Chat doesn't exist", 400));
+    return next(new CustomError("Chat doesn't exist", 400));
   }
 
   if (!chat.users.includes(req.user._id.toString())) {
-    return next(new ErrorHandler("You do not belong to this chat", 400));
+    return next(new CustomError('You do not belong to this chat', 400));
   }
 
   const message = new Message({
     chat: chatId,
     sender: req.user._id.toString(),
-    viewers: [req.user._id.toString()],
+    viewers: [req.user._id.toString()]
   });
   if (text) {
     message.text = text;
@@ -41,7 +41,7 @@ export const sendMessage = catchAsyncError<
     const { public_id, url } = await uploadMessagePicture(image);
     message.image = {
       public_id,
-      url,
+      url
     };
   }
 
@@ -50,8 +50,8 @@ export const sendMessage = catchAsyncError<
 
   await Chat.findByIdAndUpdate(chatId, {
     $set: {
-      latestMessage: message._id.toString(),
-    },
+      latestMessage: message._id.toString()
+    }
   });
 
   return res.status(200).json({ message: messages.send_message_success });
@@ -66,24 +66,24 @@ export const updateMessageViewer = catchAsyncError<
   const viewerId = req.user?._id.toString();
   const { messageId, chatId } = req.query;
   if (!messageId) {
-    return next(new ErrorHandler("Message id is not provided", 400));
+    return next(new CustomError('Message id is not provided', 400));
   }
 
   if (chatId) {
     pusher.trigger(chatId, EVENTS.MESSAGE_VIEWED, {
       chatId,
       viewerId,
-      messageId,
+      messageId
     });
   }
 
   await Message.findByIdAndUpdate(messageId, {
     $addToSet: {
-      viewers: viewerId,
-    },
+      viewers: viewerId
+    }
   });
 
-  res.status(200).json({ message: "Viewers list updated successfully" });
+  res.status(200).json({ message: 'Viewers list updated successfully' });
 });
 
 export const addReaction = catchAsyncError<
@@ -97,19 +97,19 @@ export const addReaction = catchAsyncError<
   const { chatId } = req.query;
 
   if (!reaction || !validReactions.includes(reaction)) {
-    return next(new ErrorHandler("Invalid reaction", 400));
+    return next(new CustomError('Invalid reaction', 400));
   }
 
   const message = await Message.findById(messageId);
   if (!message) {
     return next(
-      new ErrorHandler("Message already deleted or does not exist", 400)
+      new CustomError('Message already deleted or does not exist', 400)
     );
   }
 
   const chat = await Chat.findById(message.chat?.toString());
   if (!chat?.users?.includes(req.user._id.toString())) {
-    return next(new ErrorHandler("You are not part of this message"));
+    return next(new CustomError('You are not part of this message'));
   }
 
   const previouslyReacted = message?.reactions.find(
@@ -123,13 +123,13 @@ export const addReaction = catchAsyncError<
       }
       return {
         ...reaction,
-        value: req.body.reaction,
+        value: req.body.reaction
       };
     });
   } else {
     message.reactions.push({
       user: req.user._id.toString(),
-      value: req.body.reaction,
+      value: req.body.reaction
     });
   }
 
@@ -139,13 +139,13 @@ export const addReaction = catchAsyncError<
       messageId,
       reaction: {
         userId: req.user._id.toString(),
-        value: req.body.reaction,
-      },
+        value: req.body.reaction
+      }
     });
   }
   await message.save();
 
-  res.status(200).json({ message: "Reaction updated successfully" });
+  res.status(200).json({ message: 'Reaction updated successfully' });
 });
 
 export const removeReaction = catchAsyncError<
@@ -158,7 +158,7 @@ export const removeReaction = catchAsyncError<
   const message = await Message.findById(messageId);
   const { chatId } = req.query;
   if (!message) {
-    return next(new ErrorHandler("Message is deleted or does not exist", 400));
+    return next(new CustomError('Message is deleted or does not exist', 400));
   }
 
   message.reactions = message?.reactions.filter(
@@ -169,10 +169,10 @@ export const removeReaction = catchAsyncError<
     pusher.trigger(chatId, EVENTS.REACTION_REMOVED, {
       chatId,
       messageId,
-      userId: req.user._id.toString(),
+      userId: req.user._id.toString()
     });
   }
 
   await message.save();
-  res.status(200).json({ message: "Reaction removed successfully" });
+  res.status(200).json({ message: 'Reaction removed successfully' });
 });

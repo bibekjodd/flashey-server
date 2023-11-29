@@ -1,18 +1,18 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   addReaction,
   removeReaction,
   sendMessage,
-  updateMessageViewer,
-} from "../controllers/message.controller";
-import { isAuthenticated } from "../middlewares/auth";
+  updateMessageViewer
+} from '@/controllers/message.controller';
+import { isAuthenticated } from '@/middlewares/auth';
 
 const router = Router();
 
-router.route("/message/:chatId").post(isAuthenticated, sendMessage);
-router.route("/message/viewer").put(isAuthenticated, updateMessageViewer);
+router.route('/message/:chatId').post(isAuthenticated, sendMessage);
+router.route('/message/viewer').put(isAuthenticated, updateMessageViewer);
 router
-  .route("/reaction/:messageId")
+  .route('/reaction/:messageId')
   .put(isAuthenticated, addReaction)
   .delete(isAuthenticated, removeReaction);
 

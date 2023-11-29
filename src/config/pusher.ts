@@ -1,12 +1,13 @@
-import Pusher from "pusher";
+import Pusher from 'pusher';
+import { env } from './env.config';
 
 const initializePusher = () => {
   if (global.pusher) return;
   const newPusherInstance = new Pusher({
-    appId: process.env.PUSHER_APP_ID,
-    key: process.env.PUSHER_APP_KEY,
-    secret: process.env.PUSHER_APP_SECRET,
-    cluster: process.env.PUSHER_APP_CLUSTER,
+    appId: env.PUSHER_APP_ID,
+    key: env.PUSHER_APP_KEY,
+    secret: env.PUSHER_APP_SECRET,
+    cluster: env.PUSHER_APP_CLUSTER
   });
 
   global.pusher = newPusherInstance;

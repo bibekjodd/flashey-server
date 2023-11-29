@@ -1,14 +1,24 @@
 {
   "compilerOptions": {
-    "lib": ["es2021"],
-    "module": "NodeNext",
-    "target": "es2021",
-    "outDir": "./dist",
-    "strict": true,
+    /* Base Options: */
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "nodenext"
-  },
-  "exclude": ["flashey"]
+    "target": "es2022",
+    "verbatimModuleSyntax": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    /* If NOT transpiling with TypeScript: */
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "noEmit": true,
+    /* If your code doesn't run in the DOM: */
+    "lib": ["es2022"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
 }

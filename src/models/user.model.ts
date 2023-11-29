@@ -1,57 +1,57 @@
-import mongoose, { InferSchemaType } from "mongoose";
-import bcrypt from "bcryptjs";
-import validator from "validator";
+import mongoose, { type InferSchemaType } from 'mongoose';
+import bcrypt from 'bcryptjs';
+import validator from 'validator';
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "Name is mandatory field"],
+      required: [true, 'Name is mandatory field'],
       trim: true,
-      minLength: [1, "Name must be at least 1 characters"],
-      maxLength: [30, "Name should not exceed 30 characters"],
+      minLength: [1, 'Name must be at least 1 characters'],
+      maxLength: [30, 'Name should not exceed 30 characters']
     },
 
     email: {
       type: String,
-      required: [true, "Email is mandatory field"],
-      maxLength: [50, "Email should not exceed 50 characters"],
+      required: [true, 'Email is mandatory field'],
+      maxLength: [50, 'Email should not exceed 50 characters'],
       validate: {
         validator: validator.isEmail,
-        message: "Must provide valid email",
-      },
+        message: 'Must provide valid email'
+      }
     },
 
     password: {
       type: String,
-      required: [true, "Password is mandatory field"],
+      required: [true, 'Password is mandatory field'],
       select: false,
-      minLength: [6, "Password must be at least 6 characters"],
-      maxLength: [12, "Password should not exceed 12 characters"],
+      minLength: [6, 'Password must be at least 6 characters'],
+      maxLength: [12, 'Password should not exceed 12 characters']
     },
 
     googleUser: {
       type: Boolean,
-      default: false,
+      default: false
     },
 
     picture: {
       public_id: String,
-      url: String,
+      url: String
     },
 
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
+      enum: ['user', 'admin'],
+      default: 'user'
+    }
   },
   { timestamps: true }
 );
 
-userSchema.pre("save", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await bcrypt.hash(this.password || "", 10);
+userSchema.pre('save', async function (next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password || '', 10);
   }
   next();
 });
@@ -70,5 +70,5 @@ export interface IUser
     UserMethods,
     mongoose.Document {}
 
-const User = mongoose.model<IUser>("User", userSchema);
+const User = mongoose.model<IUser>('User', userSchema);
 export default User;

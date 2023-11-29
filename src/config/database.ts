@@ -1,17 +1,14 @@
-import mongoose from "mongoose";
-import devConsole from "../lib/devConsole";
+import devConsole from '@/lib/dev-console';
+import mongoose from 'mongoose';
+import { env } from './env.config';
 
-global.databaseConnected = false;
 export const connectDatabase = async () => {
   try {
-    const { connection } = await mongoose.connect(process.env.MONGO_URI);
-    global.databaseConnected = true;
+    const { connection } = await mongoose.connect(env.MONGO_URI);
 
     devConsole(`Mongodb connected at ${connection.host}`.magenta);
   } catch (error) {
-    global.databaseConnected = true;
     if (error instanceof Error) devConsole(error.message);
-
     devConsole(`Error occured while connecting mongodb`.red);
   }
 };

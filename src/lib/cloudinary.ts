@@ -1,10 +1,11 @@
-import cloudinary from "cloudinary";
+import { env } from '@/config/env.config';
+import cloudinary from 'cloudinary';
 
 export const configureCloudinary = () => {
   cloudinary.v2.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: env.CLOUDINARY_CLOUD_NAME,
+    api_key: env.CLOUDINARY_API_KEY,
+    api_secret: env.CLOUDINARY_API_SECRET
   });
 };
 
@@ -16,7 +17,7 @@ export const uploadProfilePicture = async (
   try {
     const { public_id, secure_url } = await cloudinary.v2.uploader.upload(
       datauri,
-      { folder: "RealtimeChatApi/profilepicture" }
+      { folder: 'RealtimeChatApi/profilepicture' }
     );
 
     return { public_id, url: secure_url };
@@ -33,7 +34,7 @@ export const uploadMessagePicture = async (
   try {
     const { public_id, secure_url } = await cloudinary.v2.uploader.upload(
       datauri,
-      { folder: "RealtimeChatApi/chatmessages" }
+      { folder: 'RealtimeChatApi/chatmessages' }
     );
 
     return { public_id, url: secure_url };
