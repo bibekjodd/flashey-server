@@ -1,93 +1,90 @@
-import { catchAsyncError } from '@/middlewares/catch-async-error';
-import User from '@/models/user.model';
-import { CustomError } from '@/lib/custom-error';
-import type {
-  LoginUserSchema,
-  RegisterUserSchema
-} from '@/lib/validation/user-validation-schema';
+import { db } from '@/config/database';
 import {
-  validateLoginUser,
-  validateRegisterUser
-} from '@/lib/validation/validate-users';
-import { messages } from '@/lib/messages';
-import { uploadProfilePicture } from '@/lib/cloudinary';
-import { cookieOptions, sendToken } from '@/lib/sendToken';
+  loginUserSchema,
+  queryUsersSchema,
+  registerUserSchema
+} from '@/dtos/user.dto';
+import { BadRequestException } from '@/lib/exceptions';
+import {
+  cookieOptions,
+  generateAuthToken,
+  hashPassword,
+  verifyPassword
+} from '@/lib/utils';
+import { handleAsync } from '@/middlewares/handle-async';
+import { selectUserSnapshot, users } from '@/schemas/user.schema';
+import { eq, ilike, or } from 'drizzle-orm';
 
-export const createUser = catchAsyncError<unknown, unknown, RegisterUserSchema>(
-  async (req, res, next) => {
-    validateRegisterUser(req.body);
-    const { name, email, password, imageUri } = req.body;
-
-    const user = await User.findOne({ email });
-    if (user) return next(new CustomError(messages.email_already_taken, 400));
-
-    const { public_id, url } = await uploadProfilePicture(imageUri);
-
-    const newUser = await User.create({
-      name,
-      email,
-      password,
-      picture: { public_id, url }
-    });
-
-    sendToken(res, newUser, 201);
+export const registerUser = handleAsync(async (req, res) => {
+  const body = registerUserSchema.parse(req.body);
+  const [userExists] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, body.email))
+    .limit(1);
+  if (userExists) {
+    throw new BadRequestException('User with same email already exists');
   }
-);
-
-export const login = catchAsyncError<unknown, unknown, LoginUserSchema>(
-  async (req, res, next) => {
-    validateLoginUser(req.body);
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-      return next(new CustomError(messages.invalid_creditials, 400));
-    }
-
-    const passwordMatches = await user.comparePassword(password);
-    if (!passwordMatches)
-      return next(new CustomError(messages.invalid_creditials, 400));
-
-    sendToken(res, user, 200);
+  const hashedPassword = await hashPassword(body.password);
+  const [createdUser] = await db
+    .insert(users)
+    .values({ ...body, password: hashedPassword })
+    .returning();
+  if (!createdUser) {
+    throw new BadRequestException('Could not register user');
   }
-);
-
-export const myProfile = catchAsyncError(async (req, res) => {
-  const user = await User.findById({ _id: req.user._id.toString() });
-  res.status(200).json({
-    user
-  });
+  const token = generateAuthToken(createdUser.id);
+  return res
+    .status(201)
+    .cookie('token', token, cookieOptions)
+    .json({ user: { ...createdUser, password: undefined } });
 });
 
-export const logout = catchAsyncError(async (req, res) => {
-  res
-    .cookie('token', null, cookieOptions)
-    .status(200)
-    .json({ message: messages.logout_succcess });
+export const loginUser = handleAsync(async (req, res) => {
+  const body = loginUserSchema.parse(req.body);
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, body.email))
+    .limit(1);
+
+  const exception = new BadRequestException('Invalid credentials provided');
+  if (!user) throw exception;
+  const isValidPassword = await verifyPassword(
+    body.password,
+    user.password || ''
+  );
+  if (!isValidPassword) throw exception;
+
+  const token = generateAuthToken(user.id);
+  return res
+    .cookie('token', token, cookieOptions)
+    .json({ user: { ...user, password: undefined } });
 });
 
-export const searchUsers = catchAsyncError<
-  unknown,
-  unknown,
-  unknown,
-  { search?: string }
->(async (req, res) => {
-  const search = req.query.search || '';
-
-  let users = await User.find({
-    $or: [
-      { name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } }
-    ]
-  });
-
-  users = users.filter((user) => user.email !== req.user.email);
-
-  res.status(200).json({ users });
+export const getProfile = handleAsync(async (req, res) => {
+  return res.json({ user: req.user });
 });
 
-export const suggestedUsers = catchAsyncError(async (req, res) => {
-  const users = await User.find({
-    _id: { $ne: req.user._id.toString() }
-  }).limit(10);
-  res.status(200).json({ users });
+export const logoutUser = handleAsync(async (req, res) => {
+  return res
+    .cookie('token', 'token', cookieOptions)
+    .json({ message: 'Logged out successfully' });
+});
+
+export const deleteProfile = handleAsync(async (req, res) => {
+  await db.delete(users).where(eq(users.id, req.user.id));
+  return res.json({ message: 'Profile deleted successfully' });
+});
+
+export const queryUsers = handleAsync(async (req, res) => {
+  const { q, page, page_size } = queryUsersSchema.parse(req.query);
+  const offset = (page - 1) * page_size;
+  const result = await db
+    .select(selectUserSnapshot)
+    .from(users)
+    .where(or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)))
+    .limit(page_size)
+    .offset(offset);
+  return res.json({ users: result });
 });

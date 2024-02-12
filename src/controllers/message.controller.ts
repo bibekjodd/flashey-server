@@ -1,178 +1,156 @@
-import { uploadMessagePicture } from '@/lib/cloudinary';
-import { EVENTS, validReactions } from '@/lib/constants';
-import { CustomError } from '@/lib/custom-error';
-import { messages } from '@/lib/messages';
-import { catchAsyncError } from '@/middlewares/catch-async-error';
-import Chat from '@/models/chat.model';
-import Message from '@/models/message.model';
+import { db } from '@/config/database';
+import {
+  editMessageSchema,
+  fetchMessagesQuery,
+  sendMessageSchema
+} from '@/dtos/message.dto';
+import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
+import { handleAsync } from '@/middlewares/handle-async';
+import { messages, selectMessageSnapshot } from '@/schemas/message.schema';
+import { participants } from '@/schemas/participant.schema';
+import { reactions } from '@/schemas/reaction.schema';
+import { viewers } from '@/schemas/viewer.schema';
+import { and, countDistinct, desc, eq, sql } from 'drizzle-orm';
 
-export const sendMessage = catchAsyncError<
-  { chatId: string },
-  unknown,
-  { text?: string; image?: string }
->(async (req, res, next) => {
-  const { chatId } = req.params;
-  const { text, image } = req.body;
+export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
+  const chatId = req.params.id;
+  const [canSendMessage] = await db
+    .select()
+    .from(participants)
+    .where(
+      and(eq(participants.userId, req.user.id), eq(participants.chatId, chatId))
+    )
+    .limit(1);
 
-  if (!text && !image) {
-    return next(new CustomError('Message must contain text or image', 400));
-  }
+  if (!canSendMessage)
+    throw new ForbiddenException('You do not belong to this chat');
 
-  const chat = await Chat.findById(chatId);
-
-  if (!chat) {
-    return next(new CustomError("Chat doesn't exist", 400));
-  }
-
-  if (!chat.users.includes(req.user._id.toString())) {
-    return next(new CustomError('You do not belong to this chat', 400));
-  }
-
-  const message = new Message({
-    chat: chatId,
-    sender: req.user._id.toString(),
-    viewers: [req.user._id.toString()]
-  });
-  if (text) {
-    message.text = text;
-  }
-
-  if (image) {
-    const { public_id, url } = await uploadMessagePicture(image);
-    message.image = {
-      public_id,
-      url
-    };
-  }
-
-  pusher.trigger(chat._id.toString(), EVENTS.MESSAGE_SENT, message);
-  await message.save();
-
-  await Chat.findByIdAndUpdate(chatId, {
-    $set: {
-      latestMessage: message._id.toString()
-    }
-  });
-
-  return res.status(200).json({ message: messages.send_message_success });
-});
-
-export const updateMessageViewer = catchAsyncError<
-  unknown,
-  unknown,
-  unknown,
-  { messageId: string; chatId: string }
->(async (req, res, next) => {
-  const viewerId = req.user?._id.toString();
-  const { messageId, chatId } = req.query;
-  if (!messageId) {
-    return next(new CustomError('Message id is not provided', 400));
-  }
-
-  if (chatId) {
-    pusher.trigger(chatId, EVENTS.MESSAGE_VIEWED, {
+  const { image, text } = sendMessageSchema.parse(req.body);
+  db.insert(messages)
+    .values({
       chatId,
-      viewerId,
-      messageId
-    });
-  }
-
-  await Message.findByIdAndUpdate(messageId, {
-    $addToSet: {
-      viewers: viewerId
-    }
-  });
-
-  res.status(200).json({ message: 'Viewers list updated successfully' });
+      senderId: req.user.id,
+      image,
+      text
+    })
+    .execute();
+  return res.status(201).json({ message: 'Message sent successfully' });
 });
 
-export const addReaction = catchAsyncError<
-  { messageId: string },
-  unknown,
-  { reaction: string },
-  { chatId: string }
->(async (req, res, next) => {
-  const { messageId } = req.params;
-  const { reaction } = req.body;
-  const { chatId } = req.query;
-
-  if (!reaction || !validReactions.includes(reaction)) {
-    return next(new CustomError('Invalid reaction', 400));
-  }
-
-  const message = await Message.findById(messageId);
-  if (!message) {
-    return next(
-      new CustomError('Message already deleted or does not exist', 400)
+export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
+  const chatId = req.params.id;
+  const [isParticipant] = await db
+    .select()
+    .from(participants)
+    .where(
+      and(eq(participants.chatId, chatId), eq(participants.userId, req.user.id))
+    );
+  if (!isParticipant) {
+    throw new ForbiddenException(
+      'You are not eligible to access messages from this chat'
     );
   }
+  const { page, page_size } = fetchMessagesQuery.parse(req.query);
+  const offset = (page - 1) * page_size;
+  const result = await db
+    .select({
+      ...selectMessageSnapshot,
+      totalViews: countDistinct(viewers.userId),
+      totalReactions: countDistinct(reactions.userId),
+      viewers: sql<string[]>`array_agg(${viewers.userId})`,
+      reactions: sql<
+        ({
+          userId: string | null;
+          reaction: string | null;
+        } | null)[]
+      >`json_agg(
+        json_build_object(
+          'userId',${reactions.userId},
+          'reaction',${reactions.reaction}
+          )
+        )`
+    })
+    .from(messages)
+    .where(eq(messages.chatId, chatId))
+    .leftJoin(viewers, eq(messages.id, viewers.messageId))
+    .leftJoin(reactions, eq(messages.id, reactions.messageId))
+    .groupBy(messages.id)
+    .orderBy(desc(messages.sentAt))
+    .limit(page_size)
+    .offset(offset);
 
-  const chat = await Chat.findById(message.chat?.toString());
-  if (!chat?.users?.includes(req.user._id.toString())) {
-    return next(new CustomError('You are not part of this message'));
-  }
-
-  const previouslyReacted = message?.reactions.find(
-    (reaction) => reaction.user?.toString() === req.user._id.toString()
-  );
-
-  if (previouslyReacted) {
-    message.reactions = message.reactions.map((reaction) => {
-      if (reaction.user?.toString() !== req.user._id.toString()) {
-        return reaction;
+  for (const message of result) {
+    message.viewers = [...new Set(message.viewers)];
+    message.viewers = message.viewers.filter(
+      (viewer) => viewer.toLocaleLowerCase() !== 'null'
+    );
+    const includedReactions: string[] = [];
+    message.reactions = message.reactions.filter((reaction) => {
+      if (reaction?.userId && !includedReactions.includes(reaction.userId)) {
+        includedReactions.push(reaction.userId);
+        return true;
       }
-      return {
-        ...reaction,
-        value: req.body.reaction
-      };
-    });
-  } else {
-    message.reactions.push({
-      user: req.user._id.toString(),
-      value: req.body.reaction
+      return false;
     });
   }
-
-  if (chatId) {
-    pusher.trigger(chatId, EVENTS.REACTION_ADDED, {
-      chatId,
-      messageId,
-      reaction: {
-        userId: req.user._id.toString(),
-        value: req.body.reaction
-      }
-    });
-  }
-  await message.save();
-
-  res.status(200).json({ message: 'Reaction updated successfully' });
+  return res.json({ total: result.length, messages: result });
 });
 
-export const removeReaction = catchAsyncError<
-  { messageId: string },
-  unknown,
-  unknown,
-  { chatId: string }
->(async (req, res, next) => {
-  const messageId = req.params.messageId;
-  const message = await Message.findById(messageId);
-  const { chatId } = req.query;
-  if (!message) {
-    return next(new CustomError('Message is deleted or does not exist', 400));
+export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
+  const messageId = req.params.id;
+  const [message] = await db
+    .select({ participants: sql<string[]>`array_agg(${participants.userId})` })
+    .from(messages)
+    .where(eq(messages.id, messageId))
+    .leftJoin(
+      participants,
+      and(
+        eq(participants.chatId, messages.chatId),
+        eq(participants.userId, req.user.id)
+      )
+    )
+    .limit(1);
+
+  if (!message || !message.participants.includes(req.user.id))
+    throw new ForbiddenException(
+      'You are not allowed to update activity on this chat'
+    );
+
+  await db
+    .insert(viewers)
+    .values({ messageId, userId: req.user.id })
+    .onConflictDoNothing();
+
+  return res.json({ message: 'Message seen updated successfully' });
+});
+
+export const editMessage = handleAsync<{ id: string }>(async (req, res) => {
+  const messageId = req.params.id;
+  const { text, image } = editMessageSchema.parse(req.body);
+  const [edited] = await db
+    .update(messages)
+    .set({ text, image, isEdited: true })
+    .where(and(eq(messages.id, messageId), eq(messages.senderId, req.user.id)))
+    .returning();
+  if (!edited) {
+    throw new BadRequestException(
+      'Message does not exist or you are not allowed to edit others message'
+    );
   }
+  return res.json({ message: 'Message edited successfully' });
+});
 
-  message.reactions = message?.reactions.filter(
-    (reaction) => reaction.user?.toString() !== req.user._id.toString()
-  );
+export const deleteMessage = handleAsync<{ id: string }>(async (req, res) => {
+  const messageId = req.params.id;
+  const [deleted] = await db
+    .delete(messages)
+    .where(and(eq(messages.id, messageId), eq(messages.senderId, req.user.id)))
+    .returning();
 
-  if (chatId) {
-    pusher.trigger(chatId, EVENTS.REACTION_REMOVED, {
-      chatId,
-      messageId,
-      userId: req.user._id.toString()
-    });
+  if (!deleted) {
+    throw new BadRequestException(
+      'Message is already deleted or you are not allowed to delete this message!'
+    );
   }
-
-  await message.save();
-  res.status(200).json({ message: 'Reaction removed successfully' });
+  return res.json({ message: 'Message deleted successfully' });
 });

@@ -1,25 +1,24 @@
-import { Router } from 'express';
 import {
   accessChat,
-  accessFriendsChat,
-  addToGroup,
+  accessGroupChat,
+  addToGroupChat,
   createGroupChat,
+  deleteGroup,
   fetchChats,
   removeFromGroup,
-  renameGroup,
-  typingUpdate
+  updateGroup
 } from '@/controllers/chat.controller';
 import { isAuthenticated } from '@/middlewares/auth';
+import { Router } from 'express';
 
 const router = Router();
+export const chatRoute = router;
 
-router.get('/chat/user/:friendsId', isAuthenticated, accessFriendsChat);
-router.get('/chat/group/:chatId', isAuthenticated, accessChat);
-router.get('/fetchchats', isAuthenticated, fetchChats);
-router.post('/group/create', isAuthenticated, createGroupChat);
-router.put('/group/add', isAuthenticated, addToGroup);
-router.put('/group/remove', isAuthenticated, removeFromGroup);
-router.put('/group/rename', isAuthenticated, renameGroup);
-router.post('/typing', isAuthenticated, typingUpdate);
-
-export default router;
+router.post('/group', isAuthenticated, createGroupChat);
+router.get('/chats', isAuthenticated, fetchChats);
+router.get('/chat/friend/:id', isAuthenticated, accessChat);
+router.get('/chat/group/:id', isAuthenticated, accessGroupChat);
+router.put('/update-group/:id', isAuthenticated, updateGroup);
+router.put('/add-to-group/:id', isAuthenticated, addToGroupChat);
+router.put('/remove-from-group/:id', isAuthenticated, removeFromGroup);
+router.delete('/group/:id', isAuthenticated, deleteGroup);

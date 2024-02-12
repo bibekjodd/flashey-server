@@ -1,39 +1,34 @@
-import { env } from '@/config/env.config';
-import { CustomError } from '@/lib/custom-error';
-import { messages } from '@/lib/messages';
-import User from '@/models/user.model';
-import jwt from 'jsonwebtoken';
-import { catchAsyncError } from './catch-async-error';
+import { db } from '@/config/database';
+import { ForbiddenException, UnauthorizedException } from '@/lib/exceptions';
+import { decodeAuthToken } from '@/lib/utils';
+import { selectUserSnapshot, users } from '@/schemas/user.schema';
+import { eq } from 'drizzle-orm';
+import { handleAsync } from './handle-async';
 
-export const isAuthenticated = catchAsyncError(async (req, res, next) => {
-  let { token } = req.cookies;
-  if (!token && req.headers.authorization?.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
+export const isAuthenticated = handleAsync(async (req, res, next) => {
+  const token = req.cookies?.token;
+  const unauthorizedException = new UnauthorizedException(
+    'Please login to access this resource'
+  );
+  if (!token) throw unauthorizedException;
 
-  if (!token) {
-    return next(new CustomError(messages.unauthenticated, 401));
-  }
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as {
-      _id: string;
-    };
-    const user = await User.findById(decoded._id);
+  const userId = decodeAuthToken(token);
+  if (!userId) throw unauthorizedException;
 
-    if (!user) {
-      return next(new CustomError(messages.unauthenticated, 401));
-    }
-    req.user = user;
-  } catch (err) {
-    return next(new CustomError(messages.unauthenticated, 401));
-  }
+  const [user] = await db
+    .select(selectUserSnapshot)
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) throw unauthorizedException;
 
+  req.user = user;
   next();
 });
 
-export const isAdmin = catchAsyncError(async (req, res, next) => {
-  if (req.user.role !== 'admin')
-    return next(new CustomError(messages.non_admin, 403));
-
+export const isAdmin = handleAsync(async (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    throw new ForbiddenException('Only admin can access this resource');
+  }
   next();
 });

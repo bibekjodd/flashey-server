@@ -1,19 +1,18 @@
-import { Router } from 'express';
 import {
-  addReaction,
-  removeReaction,
-  sendMessage,
-  updateMessageViewer
+  deleteMessage,
+  editMessage,
+  fetchMessages,
+  messageSeen,
+  sendMessage
 } from '@/controllers/message.controller';
 import { isAuthenticated } from '@/middlewares/auth';
+import { Router } from 'express';
 
 const router = Router();
+export const messageRoute = router;
 
-router.route('/message/:chatId').post(isAuthenticated, sendMessage);
-router.route('/message/viewer').put(isAuthenticated, updateMessageViewer);
-router
-  .route('/reaction/:messageId')
-  .put(isAuthenticated, addReaction)
-  .delete(isAuthenticated, removeReaction);
-
-export default router;
+router.post('/message/:id', isAuthenticated, sendMessage);
+router.get('/messages/:id', isAuthenticated, fetchMessages);
+router.put('/seen/:id', isAuthenticated, messageSeen);
+router.put('/message/:id', isAuthenticated, editMessage);
+router.delete('/message/:id', isAuthenticated, deleteMessage);
