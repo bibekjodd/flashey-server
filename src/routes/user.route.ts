@@ -1,10 +1,12 @@
 import {
   deleteProfile,
   getProfile,
+  getUserProfile,
   loginUser,
   logoutUser,
   queryUsers,
-  registerUser
+  registerUser,
+  updateProfile
 } from '@/controllers/user.controller';
 import { isAuthenticated } from '@/middlewares/auth';
 import express from 'express';
@@ -18,5 +20,7 @@ router.get('/search', isAuthenticated, queryUsers);
 router
   .route('/profile')
   .get(isAuthenticated, getProfile)
+  .put(isAuthenticated, updateProfile)
   .delete(isAuthenticated, deleteProfile);
+router.get('/user/:id', isAuthenticated, getUserProfile);
 router.get('/logout', isAuthenticated, logoutUser);

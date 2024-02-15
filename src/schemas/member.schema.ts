@@ -2,15 +2,15 @@ import {
   foreignKey,
   index,
   pgTable,
+  primaryKey,
   text,
   timestamp
 } from 'drizzle-orm/pg-core';
 import { chats } from './chat.schema';
 import { users } from './user.schema';
-import { primaryKey } from 'drizzle-orm/pg-core';
 
-export const participants = pgTable(
-  'participants',
+export const members = pgTable(
+  'members',
   {
     userId: text('user_id').notNull(),
     chatId: text('chat_id').notNull(),
@@ -18,30 +18,30 @@ export const participants = pgTable(
       .notNull()
       .defaultNow()
   },
-  function constraints(participants) {
+  function constraints(members) {
     return {
       primaryKey: primaryKey({
-        name: 'participants_pkey',
-        columns: [participants.chatId, participants.userId]
+        name: 'members_pkey',
+        columns: [members.chatId, members.userId]
       }),
       userReference: foreignKey({
         name: 'fk_user_id',
-        columns: [participants.userId],
+        columns: [members.userId],
         foreignColumns: [users.id]
       })
         .onDelete('cascade')
         .onUpdate('cascade'),
       chatReference: foreignKey({
         name: 'fk_chat_id',
-        columns: [participants.chatId],
+        columns: [members.chatId],
         foreignColumns: [chats.id]
       })
         .onDelete('cascade')
         .onUpdate('cascade'),
-      indexUserId: index('participants_idx_user_id').on(participants.userId),
-      indexChatId: index('participants_idx_chat_id').on(participants.chatId)
+      indexUserId: index('members_idx_user_id').on(members.userId),
+      indexChatId: index('members_idx_chat_id').on(members.chatId)
     };
   }
 );
-export type Participant = typeof participants.$inferSelect;
-export type InsertParticipant = typeof participants.$inferInsert;
+export type Member = typeof members.$inferSelect;
+export type InsertMember = typeof members.$inferInsert;

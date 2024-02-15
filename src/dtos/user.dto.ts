@@ -5,7 +5,7 @@ const nameSchema = z.string().min(4, 'Too short name').max(20, 'Too long name');
 const emailSchema = z.string().email().max(40, 'Too long email');
 const passwordSchema = z
   .string()
-  .min(6, 'Password must be at least 6 characters')
+  .min(8, 'Password must be at least 8 characters')
   .max(12, 'Too long password');
 
 export const registerUserSchema = z.object({
@@ -19,6 +19,16 @@ export const loginUserSchema = z.object({
   email: emailSchema,
   password: passwordSchema
 });
+
+export const updateProfileSchema = z
+  .object({
+    name: nameSchema.optional(),
+    image: imageSchema.nullish()
+  })
+  .refine((data) => {
+    if (!data.name && !data.image) return false;
+    return true;
+  }, 'At least one of name or image is required to update profile');
 
 export const queryUsersSchema = z.object({
   q: z

@@ -21,24 +21,29 @@ export const fetchChatsQuerySchema = z.object({
 });
 
 export const createGroupChatSchema = z.object({
-  title: z
-    .string({ required_error: 'group title is required' })
+  name: z
+    .string({ required_error: 'group name is required' })
     .min(4, 'Group name is too short')
-    .max(40, 'Group title must not exceed 40 characters'),
-  participants: z.array(z.string())
+    .max(40, 'Group name must not exceed 40 characters'),
+  members: z
+    .array(z.string())
+    .max(9, "Group chat can't have more than 10 members")
 });
 
 export const updateGroupSchema = z.object({
-  title: z
-    .string({ required_error: 'group title is required' })
+  name: z
+    .string({ required_error: 'group name is required' })
     .min(4, 'Group name is too short')
-    .max(40, 'Group title must not exceed 40 characters')
+    .max(40, 'Group name must not exceed 40 characters')
     .optional(),
-  image: imageSchema.nullish()
+  image: imageSchema.nullish(),
+  members: z
+    .array(z.string())
+    .max(8, "Group chat can't have more than 10 members")
 });
 
 export const addToGroupChatSchema = z.object({
-  participants: z.array(z.string())
+  members: z.array(z.string())
 });
 
 export const removeFromGroupSchema = addToGroupChatSchema;

@@ -8,7 +8,7 @@
   "description": "",
   "scripts": {
     "test": "jest",
-    "lint": "eslint src",
+    "lint": "tsc --noEmit && eslint src",
     "build": "tsc && tscpaths -p tsconfig.json -s ./src -o ./dist",
     "start": "node dist/app.js",
     "dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/app.ts",

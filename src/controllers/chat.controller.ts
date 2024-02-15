@@ -13,17 +13,17 @@ import {
 } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats, selectChatSnapshot } from '@/schemas/chat.schema';
-import { InsertParticipant, participants } from '@/schemas/participant.schema';
+import { InsertMember, members } from '@/schemas/member.schema';
 import { selectUsersJSON, users } from '@/schemas/user.schema';
 import { fetchChat } from '@/services/chat.service';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 
 export const createGroupChat = handleAsync(async (req, res) => {
   const body = createGroupChatSchema.parse(req.body);
-  if (!body.participants.includes(req.user.id)) {
-    body.participants.push(req.user.id);
+  if (!body.members.includes(req.user.id)) {
+    body.members.push(req.user.id);
   }
-  if (body.participants.length < 2) {
+  if (body.members.length < 2) {
     throw new BadRequestException(
       'At least 2 users are required to create group chat'
     );
@@ -32,7 +32,7 @@ export const createGroupChat = handleAsync(async (req, res) => {
   const [createdChat] = await db
     .insert(chats)
     .values({
-      title: body.title,
+      name: body.name,
       admin: req.user.id,
       isGroupChat: true
     })
@@ -40,14 +40,15 @@ export const createGroupChat = handleAsync(async (req, res) => {
   if (!createdChat) {
     throw new BadRequestException('Could not create group chat!');
   }
-  const insertParticipants: InsertParticipant[] = body.participants.map(
-    (participant) => ({ chatId: createdChat.id, userId: participant })
-  );
+  const insertMembers: InsertMember[] = body.members.map((member) => ({
+    chatId: createdChat.id,
+    userId: member
+  }));
   await db
-    .insert(participants)
-    .values(insertParticipants)
+    .insert(members)
+    .values(insertMembers)
     .catch(() => {
-      throw new BadRequestException('Invalid participants id provided');
+      throw new BadRequestException('Invalid members id provided');
     });
   const chat = await fetchChat(createdChat.id);
   return res.status(201).json({ chat });
@@ -58,20 +59,23 @@ export const fetchChats = handleAsync(async (req, res) => {
   const offset = (page - 1) * page_size;
 
   const usersChat = db
-    .select({ id: participants.chatId })
-    .from(participants)
-    .where(eq(participants.userId, req.user.id));
+    .select({ id: members.chatId })
+    .from(members)
+    .where(eq(members.userId, req.user.id));
 
   const result = await db
-    .select({ ...selectChatSnapshot, participants: selectUsersJSON })
+    .select({
+      ...selectChatSnapshot,
+      members: selectUsersJSON
+    })
     .from(chats)
     .where(inArray(chats.id, usersChat))
-    .leftJoin(participants, eq(chats.id, participants.chatId))
-    .leftJoin(users, eq(participants.userId, users.id))
-    .groupBy(chats.id, participants.joinedAt)
+    .leftJoin(members, eq(chats.id, members.chatId))
+    .leftJoin(users, eq(members.userId, users.id))
+    .groupBy(chats.id)
     .limit(page_size)
     .offset(offset)
-    .orderBy(desc(participants.joinedAt));
+    .orderBy(desc(chats.updatedAt));
   return res.json({ chats: result });
 });
 
@@ -94,8 +98,8 @@ export const accessChat = handleAsync<{ id: string }>(async (req, res) => {
   let chat = await fetchChat(chatId);
   if (chat) return res.json({ chat });
 
-  await db.insert(chats).values({ id: chatId, admin: req.user.id });
-  await db.insert(participants).values([
+  await db.insert(chats).values({ id: chatId });
+  await db.insert(members).values([
     { chatId, userId: req.user.id },
     { chatId, userId: friendsId }
   ]);
@@ -111,8 +115,8 @@ export const accessGroupChat = handleAsync<{ id: string }>(async (req, res) => {
       'The group does not exist or has been deleted!'
     );
 
-  const canUserAccess = chat.participants.find(
-    (participant) => participant.id === req.user.id
+  const canUserAccess = chat.members.find(
+    (member) => member.id === req.user.id
   );
   if (!canUserAccess) {
     throw new ForbiddenException(
@@ -125,9 +129,9 @@ export const accessGroupChat = handleAsync<{ id: string }>(async (req, res) => {
 export const updateGroup = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
   const data = updateGroupSchema.parse(req.body);
-  if (!data.image && !data.title)
+  if (!data.image && !data.name)
     throw new BadRequestException(
-      'Provide one of image or title to update group'
+      'Provide one of image or name to update group'
     );
 
   const [chat] = await db
@@ -152,35 +156,48 @@ export const updateGroup = handleAsync<{ id: string }>(async (req, res) => {
 export const addToGroupChat = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
   const body = addToGroupChatSchema.parse(req.body);
-  if (!body.participants.length)
-    return res.json({ message: 'Participants added successfully' });
+  if (!body.members.length)
+    return res.json({ message: 'Members added successfully' });
 
   const [chat] = await db
-    .select()
+    .select({
+      id: chats.id,
+      admin: chats.admin,
+      totalMembers: count(members.userId)
+    })
     .from(chats)
     .where(and(eq(chats.id, chatId), eq(chats.isGroupChat, true)))
+    .leftJoin(members, eq(chats.id, members.chatId))
+    .groupBy(chats.id)
     .limit(1);
   if (!chat) throw new NotFoundException('Chat does not exist');
   if (chat.admin !== req.user.id)
     throw new ForbiddenException('Only admins can add users to the chat');
 
-  const insertParticipants: InsertParticipant[] = body.participants.map(
-    (participant) => ({ chatId, userId: participant })
-  );
-  db.insert(participants)
-    .values(insertParticipants)
-    .onConflictDoNothing()
-    .execute();
+  if (chat.totalMembers + body.members.length > 10) {
+    throw new BadRequestException("Group can't have more than 10 members");
+  }
 
-  return res.json({ message: 'Participants added successfully' });
+  const insertMembers: InsertMember[] = body.members.map((member) => ({
+    chatId,
+    userId: member
+  }));
+  await db
+    .insert(members)
+    .values(insertMembers)
+    .catch(() => {
+      throw new BadRequestException('Invalid member id provided');
+    });
+
+  return res.json({ message: 'Members added successfully' });
 });
 
 export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
   const body = removeFromGroupSchema.parse(req.body);
-  if (!body.participants.length) {
+  if (!body.members.length) {
     return res.json({
-      message: 'Participants removed from the group successfully'
+      message: 'Members removed from the group successfully'
     });
   }
 
@@ -193,20 +210,18 @@ export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
 
   if (chat.admin !== req.user.id)
     throw new ForbiddenException(
-      'Only admins can remove participants from the group'
+      'Only admins can remove members from the group'
     );
 
-  if (body.participants.includes(req.user.id)) {
+  if (body.members.includes(req.user.id)) {
     db.delete(chats).where(eq(chats.id, chatId)).execute();
     return res.json({ message: 'Group deleted successfully' });
   }
 
-  db.delete(participants)
-    .where(inArray(participants.userId, body.participants))
-    .execute();
+  db.delete(members).where(inArray(members.userId, body.members)).execute();
 
   return res.json({
-    message: 'Participants removed from the group successfully'
+    message: 'Members removed from the group successfully'
   });
 });
 

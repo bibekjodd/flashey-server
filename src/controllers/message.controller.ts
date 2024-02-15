@@ -6,46 +6,82 @@ import {
 } from '@/dtos/message.dto';
 import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
+import { chats } from '@/schemas/chat.schema';
+import { members } from '@/schemas/member.schema';
 import { messages, selectMessageSnapshot } from '@/schemas/message.schema';
-import { participants } from '@/schemas/participant.schema';
 import { reactions } from '@/schemas/reaction.schema';
 import { viewers } from '@/schemas/viewer.schema';
+import { updateLastMessageOnChat } from '@/services/chat.service';
 import { and, countDistinct, desc, eq, sql } from 'drizzle-orm';
 
 export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
   const [canSendMessage] = await db
     .select()
-    .from(participants)
-    .where(
-      and(eq(participants.userId, req.user.id), eq(participants.chatId, chatId))
-    )
+    .from(members)
+    .where(and(eq(members.userId, req.user.id), eq(members.chatId, chatId)))
     .limit(1);
 
   if (!canSendMessage)
     throw new ForbiddenException('You do not belong to this chat');
 
   const { image, text } = sendMessageSchema.parse(req.body);
-  db.insert(messages)
+  const [message] = await db
+    .insert(messages)
     .values({
       chatId,
       senderId: req.user.id,
       image,
       text
     })
+    .returning()
     .execute();
-  return res.status(201).json({ message: 'Message sent successfully' });
+
+  updateLastMessageOnChat(chatId, {
+    message: text,
+    sender: req.user.name,
+    senderId: req.user.id
+  });
+  return res
+    .status(201)
+    .json({ message: { ...message, viewers: [], reactions: [] } });
+});
+
+export const fetchMessage = handleAsync<{ id: string }>(async (req, res) => {
+  const messageId = req.params.id;
+
+  const [message] = await db
+    .select({
+      ...selectMessageSnapshot,
+      viewers: sql`json_agg(distinct(${viewers.userId}))`,
+      reactions: sql`json_agg(json_build_object('userId',${reactions.userId},'reaction',${reactions.reaction}))`
+    })
+    .from(messages)
+    .where(eq(messages.id, messageId))
+    .leftJoin(chats, eq(messages.chatId, chats.id))
+    .leftJoin(
+      members,
+      and(eq(chats.id, members.chatId), eq(members.userId, req.user.id))
+    )
+    .leftJoin(viewers, eq(messages.id, viewers.messageId))
+    .leftJoin(reactions, eq(messages.id, reactions.messageId))
+    .groupBy(messages.id);
+  if (!message) {
+    throw new BadRequestException(
+      'Message does not exist of you are not allowed to read this message'
+    );
+  }
+
+  return res.json({ message });
 });
 
 export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
-  const [isParticipant] = await db
+  const [isMember] = await db
     .select()
-    .from(participants)
-    .where(
-      and(eq(participants.chatId, chatId), eq(participants.userId, req.user.id))
-    );
-  if (!isParticipant) {
+    .from(members)
+    .where(and(eq(members.chatId, chatId), eq(members.userId, req.user.id)));
+  if (!isMember) {
     throw new ForbiddenException(
       'You are not eligible to access messages from this chat'
     );
@@ -99,19 +135,16 @@ export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
 export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
   const messageId = req.params.id;
   const [message] = await db
-    .select({ participants: sql<string[]>`array_agg(${participants.userId})` })
+    .select({ members: sql<string[]>`array_agg(${members.userId})` })
     .from(messages)
     .where(eq(messages.id, messageId))
     .leftJoin(
-      participants,
-      and(
-        eq(participants.chatId, messages.chatId),
-        eq(participants.userId, req.user.id)
-      )
+      members,
+      and(eq(members.chatId, messages.chatId), eq(members.userId, req.user.id))
     )
     .limit(1);
 
-  if (!message || !message.participants.includes(req.user.id))
+  if (!message || !message.members.includes(req.user.id))
     throw new ForbiddenException(
       'You are not allowed to update activity on this chat'
     );
@@ -132,11 +165,15 @@ export const editMessage = handleAsync<{ id: string }>(async (req, res) => {
     .set({ text, image, isEdited: true })
     .where(and(eq(messages.id, messageId), eq(messages.senderId, req.user.id)))
     .returning();
+
   if (!edited) {
     throw new BadRequestException(
       'Message does not exist or you are not allowed to edit others message'
     );
   }
+
+  updateLastMessageOnChat(edited.chatId, null);
+
   return res.json({ message: 'Message edited successfully' });
 });
 
@@ -152,5 +189,6 @@ export const deleteMessage = handleAsync<{ id: string }>(async (req, res) => {
       'Message is already deleted or you are not allowed to delete this message!'
     );
   }
+  updateLastMessageOnChat(deleted.chatId, null);
   return res.json({ message: 'Message deleted successfully' });
 });

@@ -5,7 +5,7 @@ export const imageSchema = z
   .string({ invalid_type_error: 'Invalid image url' })
   .trim()
   .regex(imageRegExp, 'invalid image url')
-  .max(100, 'Too long image uri');
+  .max(200, 'Too long image uri');
 
 export const validReactions = [
   'like',
@@ -15,6 +15,14 @@ export const validReactions = [
   'wow',
   'sad'
 ] as const;
+export const emojis = {
+  like: '👍',
+  love: '❤️',
+  haha: '😂',
+  angry: '😡',
+  wow: '😲',
+  sad: '🥲'
+} as const;
 export const validReactionsSchema = z.enum(validReactions, {
   invalid_type_error: 'Invalid reaction'
 });

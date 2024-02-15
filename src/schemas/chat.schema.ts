@@ -2,6 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   boolean,
   foreignKey,
+  index,
+  json,
   pgTable,
   primaryKey,
   text,
@@ -14,13 +16,19 @@ export const chats = pgTable(
   'chats',
   {
     id: text('id').notNull().$defaultFn(createId),
-    title: varchar('title', { length: 40 }),
-    admin: text('admin').notNull(),
-    image: varchar('image', { length: 255 }),
+    name: varchar('name', { length: 40 }),
+    admin: text('admin'),
+    image: varchar('image', { length: 200 }),
     isGroupChat: boolean('is_group_chat').notNull().default(false),
     createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
       .notNull()
-      .defaultNow()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow(),
+    lastMessage: json('last_message').$type<{
+      senderId: string;
+      sender: string;
+      message: string;
+    }>()
   },
   function constraints(chats) {
     return {
@@ -30,6 +38,9 @@ export const chats = pgTable(
         columns: [chats.admin],
         foreignColumns: [users.id]
       })
+        .onDelete('cascade')
+        .onUpdate('cascade'),
+      indexUpdatedAt: index('chats_idx_updated_at').on(chats.updatedAt)
     };
   }
 );
@@ -37,9 +48,11 @@ export const chats = pgTable(
 export type Chat = typeof chats.$inferSelect;
 export const selectChatSnapshot = {
   id: chats.id,
-  title: chats.title,
+  name: chats.name,
   image: chats.image,
   admin: chats.admin,
   isGroupChat: chats.isGroupChat,
-  createdAt: chats.createdAt
+  createdAt: chats.createdAt,
+  updatedAt: chats.updatedAt,
+  lastMessage: chats.lastMessage
 };

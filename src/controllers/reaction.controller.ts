@@ -1,11 +1,12 @@
 import { db } from '@/config/database';
-import { validReactionsSchema } from '@/dtos/common.dto';
+import { emojis, validReactionsSchema } from '@/dtos/common.dto';
 import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
 import { messages } from '@/schemas/message.schema';
-import { participants } from '@/schemas/participant.schema';
+import { members } from '@/schemas/member.schema';
 import { reactions } from '@/schemas/reaction.schema';
+import { updateLastMessageOnChat } from '@/services/chat.service';
 import { and, eq } from 'drizzle-orm';
 
 export const addReaction = handleAsync<
@@ -37,17 +38,18 @@ export const addReaction = handleAsync<
   }
 
   const [message] = await db
-    .select({ eligibleUser: participants.userId })
+    .select({
+      eligibleUser: members.userId,
+      chatId: messages.chatId
+    })
     .from(messages)
     .where(eq(messages.id, messageId))
     .leftJoin(chats, eq(messages.chatId, chats.id))
     .leftJoin(
-      participants,
-      and(
-        eq(chats.id, participants.chatId),
-        eq(participants.userId, req.user.id)
-      )
-    );
+      members,
+      and(eq(chats.id, members.chatId), eq(members.userId, req.user.id))
+    )
+    .groupBy(messages.id, members.userId);
 
   if (message?.eligibleUser !== req.user.id) {
     throw new ForbiddenException(
@@ -62,6 +64,12 @@ export const addReaction = handleAsync<
       set: { reaction }
     })
     .execute();
+
+  updateLastMessageOnChat(message.chatId, {
+    message: `reacted ${emojis[reaction]} to a message`,
+    sender: req.user.name,
+    senderId: req.user.id
+  });
 
   return res.json({ message: 'Reaction added successfully' });
 });

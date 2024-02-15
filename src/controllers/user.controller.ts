@@ -2,7 +2,8 @@ import { db } from '@/config/database';
 import {
   loginUserSchema,
   queryUsersSchema,
-  registerUserSchema
+  registerUserSchema,
+  updateProfileSchema
 } from '@/dtos/user.dto';
 import { BadRequestException } from '@/lib/exceptions';
 import {
@@ -62,8 +63,43 @@ export const loginUser = handleAsync(async (req, res) => {
     .json({ user: { ...user, password: undefined } });
 });
 
+export const queryUsers = handleAsync(async (req, res) => {
+  const { q, page, page_size } = queryUsersSchema.parse(req.query);
+  const offset = (page - 1) * page_size;
+  let result = await db
+    .select(selectUserSnapshot)
+    .from(users)
+    .where(or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)))
+    .limit(page_size)
+    .offset(offset);
+  result = result.filter((user) => user.id !== req.user.id);
+  return res.json({ users: result });
+});
+
 export const getProfile = handleAsync(async (req, res) => {
   return res.json({ user: req.user });
+});
+
+export const getUserProfile = handleAsync<{ id: string }>(async (req, res) => {
+  const userId = req.params.id;
+  const [user] = await db
+    .select({ ...selectUserSnapshot })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) {
+    throw new BadRequestException('User does not exist');
+  }
+  return res.json({ user });
+});
+
+export const updateProfile = handleAsync(async (req, res) => {
+  const { name, image } = updateProfileSchema.parse(req.body);
+  db.update(users)
+    .set({ name, image: image })
+    .where(eq(users.id, req.user.id))
+    .execute();
+  return res.json({ message: 'Profile updated successfully' });
 });
 
 export const logoutUser = handleAsync(async (req, res) => {
@@ -75,16 +111,4 @@ export const logoutUser = handleAsync(async (req, res) => {
 export const deleteProfile = handleAsync(async (req, res) => {
   await db.delete(users).where(eq(users.id, req.user.id));
   return res.json({ message: 'Profile deleted successfully' });
-});
-
-export const queryUsers = handleAsync(async (req, res) => {
-  const { q, page, page_size } = queryUsersSchema.parse(req.query);
-  const offset = (page - 1) * page_size;
-  const result = await db
-    .select(selectUserSnapshot)
-    .from(users)
-    .where(or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)))
-    .limit(page_size)
-    .offset(offset);
-  return res.json({ users: result });
 });
