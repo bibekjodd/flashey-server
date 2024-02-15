@@ -23,6 +23,7 @@ export const emojis = {
   wow: '😲',
   sad: '🥲'
 } as const;
+export type Reaction = keyof typeof emojis | null;
 export const validReactionsSchema = z.enum(validReactions, {
   invalid_type_error: 'Invalid reaction'
 });

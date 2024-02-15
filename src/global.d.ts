@@ -1,5 +1,6 @@
 import { EnvType } from '@/config/env.config';
 import { UserSnapshot } from './schemas/user.schema';
+import Pusher from 'pusher';
 
 export {};
 declare global {
@@ -14,4 +15,6 @@ declare global {
       user: UserSnapshot;
     }
   }
+
+  var __PUSHER__: Pusher | undefined;
 }

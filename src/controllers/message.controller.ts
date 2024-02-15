@@ -1,9 +1,16 @@
 import { db } from '@/config/database';
+import { pusher } from '@/config/pusher';
 import {
   editMessageSchema,
   fetchMessagesQuery,
   sendMessageSchema
 } from '@/dtos/message.dto';
+import {
+  EVENTS,
+  MessageDeletedResponse,
+  MessageSeenResponse,
+  MessageSentResponse
+} from '@/lib/events';
 import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
@@ -42,6 +49,12 @@ export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
     sender: req.user.name,
     senderId: req.user.id
   });
+  // notify user/members
+  pusher.trigger(chatId, EVENTS.MESSAGE_SENT, {
+    image,
+    text,
+    senderId: req.user.id
+  } satisfies MessageSentResponse);
   return res
     .status(201)
     .json({ message: { ...message, viewers: [], reactions: [] } });
@@ -135,7 +148,10 @@ export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
 export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
   const messageId = req.params.id;
   const [message] = await db
-    .select({ members: sql<string[]>`array_agg(${members.userId})` })
+    .select({
+      members: sql<string[]>`array_agg(${members.userId})`,
+      chatId: messages.chatId
+    })
     .from(messages)
     .where(eq(messages.id, messageId))
     .leftJoin(
@@ -153,6 +169,12 @@ export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
     .insert(viewers)
     .values({ messageId, userId: req.user.id })
     .onConflictDoNothing();
+
+  // notify user/members
+  pusher.trigger(message.chatId, EVENTS.MESSAGE_SEEN, {
+    messageId,
+    userId: req.user.id
+  } satisfies MessageSeenResponse);
 
   return res.json({ message: 'Message seen updated successfully' });
 });
@@ -190,5 +212,9 @@ export const deleteMessage = handleAsync<{ id: string }>(async (req, res) => {
     );
   }
   updateLastMessageOnChat(deleted.chatId, null);
+  // notify user/members
+  pusher.trigger(deleted.chatId, EVENTS.MESSAGE_DELETED, {
+    messageId
+  } satisfies MessageDeletedResponse);
   return res.json({ message: 'Message deleted successfully' });
 });

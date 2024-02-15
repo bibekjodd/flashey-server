@@ -25,7 +25,11 @@ const envSchema = z
     FRONTEND_URLS: z
       .string()
       .optional()
-      .transform((urls) => (urls || '').split(' '))
+      .transform((urls) => (urls || '').split(' ')),
+
+    PUSHER_APP_ID: z.string(),
+    PUSHER_KEY: z.string(),
+    PUSHER_SECRET: z.string()
   })
   .readonly();
 

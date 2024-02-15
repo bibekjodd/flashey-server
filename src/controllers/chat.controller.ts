@@ -1,4 +1,5 @@
 import { db } from '@/config/database';
+import { pusher } from '@/config/pusher';
 import {
   addToGroupChatSchema,
   createGroupChatSchema,
@@ -6,6 +7,14 @@ import {
   removeFromGroupSchema,
   updateGroupSchema
 } from '@/dtos/chat.dto';
+import {
+  AddedToGroupResponse,
+  EVENTS,
+  GroupCreatedResponse,
+  GroupDeletedResponse,
+  GroupUpdatedResponse,
+  RemovedFromGroupResponse
+} from '@/lib/events';
 import {
   BadRequestException,
   ForbiddenException,
@@ -34,7 +43,12 @@ export const createGroupChat = handleAsync(async (req, res) => {
     .values({
       name: body.name,
       admin: req.user.id,
-      isGroupChat: true
+      isGroupChat: true,
+      lastMessage: {
+        sender: req.user.name,
+        senderId: req.user.id,
+        message: 'created group'
+      }
     })
     .returning({ id: chats.id });
   if (!createdChat) {
@@ -48,8 +62,16 @@ export const createGroupChat = handleAsync(async (req, res) => {
     .insert(members)
     .values(insertMembers)
     .catch(() => {
+      db.delete(chats).where(eq(chats.id, createdChat.id)).execute();
       throw new BadRequestException('Invalid members id provided');
     });
+
+  // notify users
+  for (const member of insertMembers) {
+    pusher.trigger(member.userId, EVENTS.GROUP_CREATED, {
+      chatId: createdChat.id
+    } satisfies GroupCreatedResponse);
+  }
   const chat = await fetchChat(createdChat.id);
   return res.status(201).json({ chat });
 });
@@ -103,6 +125,9 @@ export const accessChat = handleAsync<{ id: string }>(async (req, res) => {
     { chatId, userId: req.user.id },
     { chatId, userId: friendsId }
   ]);
+  pusher.trigger(friendsId, EVENTS.GROUP_CREATED, {
+    chatId: chatId
+  } satisfies GroupCreatedResponse);
   chat = await fetchChat(chatId);
   return res.json({ chat });
 });
@@ -145,6 +170,12 @@ export const updateGroup = handleAsync<{ id: string }>(async (req, res) => {
       )
     )
     .returning();
+
+  // notify members
+  pusher.trigger(chatId, EVENTS.GROUP_UPDATED, {
+    name: data.image || undefined,
+    image: data.image
+  } satisfies GroupUpdatedResponse);
 
   if (!chat)
     throw new BadRequestException(
@@ -189,6 +220,18 @@ export const addToGroupChat = handleAsync<{ id: string }>(async (req, res) => {
       throw new BadRequestException('Invalid member id provided');
     });
 
+  // notify members
+  const addedMembersId = insertMembers.map((member) => member.userId);
+  pusher.trigger(chatId, EVENTS.GROUP_UPDATED, {
+    addedMembersId
+  } satisfies GroupUpdatedResponse);
+  // notify users
+  for (const member of addedMembersId) {
+    pusher.trigger(member, EVENTS.ADDED_TO_GROUP, {
+      chatId
+    } satisfies AddedToGroupResponse);
+  }
+
   return res.json({ message: 'Members added successfully' });
 });
 
@@ -219,13 +262,17 @@ export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
   }
 
   db.delete(members).where(inArray(members.userId, body.members)).execute();
+  // notify members
+  pusher.trigger(chatId, EVENTS.REMOVED_FROM_GROUP, {
+    removedMembersId: body.members
+  } satisfies RemovedFromGroupResponse);
 
   return res.json({
     message: 'Members removed from the group successfully'
   });
 });
 
-export const deleteGroup = handleAsync<{ id: string }>(async (req, res) => {
+export const deleteChat = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
   const [chat] = await db
     .delete(chats)
@@ -242,5 +289,12 @@ export const deleteGroup = handleAsync<{ id: string }>(async (req, res) => {
     throw new BadRequestException(
       'Group already deleted or you are not eligible to delete the group'
     );
+
+  // notify members
+  pusher.trigger(
+    chatId,
+    EVENTS.GROUP_DELETED,
+    {} satisfies GroupDeletedResponse
+  );
   return res.json({ message: 'Group deleted successfully' });
 });

@@ -3,7 +3,7 @@ import {
   accessGroupChat,
   addToGroupChat,
   createGroupChat,
-  deleteGroup,
+  deleteChat,
   fetchChats,
   removeFromGroup,
   updateGroup
@@ -21,4 +21,4 @@ router.get('/chat/group/:id', isAuthenticated, accessGroupChat);
 router.put('/update-group/:id', isAuthenticated, updateGroup);
 router.put('/add-to-group/:id', isAuthenticated, addToGroupChat);
 router.put('/remove-from-group/:id', isAuthenticated, removeFromGroup);
-router.delete('/group/:id', isAuthenticated, deleteGroup);
+router.delete('/group/:id', isAuthenticated, deleteChat);

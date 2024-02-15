@@ -1,10 +1,12 @@
 import { db } from '@/config/database';
+import { pusher } from '@/config/pusher';
 import { emojis, validReactionsSchema } from '@/dtos/common.dto';
+import { EVENTS, ReactionAddedResponse } from '@/lib/events';
 import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
-import { messages } from '@/schemas/message.schema';
 import { members } from '@/schemas/member.schema';
+import { messages } from '@/schemas/message.schema';
 import { reactions } from '@/schemas/reaction.schema';
 import { updateLastMessageOnChat } from '@/services/chat.service';
 import { and, eq } from 'drizzle-orm';
@@ -33,6 +35,22 @@ export const addReaction = handleAsync<
         'Reaction already deleted or you are not eligible to remove reaction'
       );
     }
+
+    // notify user/members
+    db.select({ chatId: messages.chatId })
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1)
+      .execute()
+      .then(([result]) => {
+        if (result?.chatId) {
+          pusher.trigger(result.chatId, EVENTS.REACTION_ADDED, {
+            messageId,
+            reaction,
+            userId: req.user.id
+          } satisfies ReactionAddedResponse);
+        }
+      });
 
     return res.json({ message: 'Reaction removed successfully' });
   }
@@ -70,6 +88,13 @@ export const addReaction = handleAsync<
     sender: req.user.name,
     senderId: req.user.id
   });
+
+  // notify user/members
+  pusher.trigger(message.chatId, EVENTS.REACTION_ADDED, {
+    messageId,
+    reaction,
+    userId: req.user.id
+  } satisfies ReactionAddedResponse);
 
   return res.json({ message: 'Reaction added successfully' });
 });
