@@ -3,7 +3,10 @@ import { imageSchema } from './common.dto';
 
 export const sendMessageSchema = z
   .object({
-    text: z.string().nullish(),
+    text: z
+      .string()
+      .nullish()
+      .transform((text) => text?.trim() || text),
     image: imageSchema.nullish()
   })
   .refine((data) => {
@@ -16,20 +19,17 @@ export const sendMessageSchema = z
 export const editMessageSchema = sendMessageSchema;
 
 export const fetchMessagesQuery = z.object({
-  page: z
+  cursor: z
+    .string()
+    .datetime({ offset: true, message: 'Invalid cursor sent on request' })
+    .optional()
+    .transform((value) => value || new Date().toISOString()),
+  limit: z
     .string()
     .optional()
     .transform((value) => {
-      const page = Number(value) || 1;
-      if (page < 1) return 1;
-      return page;
-    }),
-  page_size: z
-    .string()
-    .optional()
-    .transform((value) => {
-      const page_size = Number(value) || 10;
-      if (page_size < 1 || page_size > 10) return 10;
-      return page_size;
+      const limit = Number(value) || 10;
+      if (limit < 1 || limit > 10) return 10;
+      return limit;
     })
 });

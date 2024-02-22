@@ -1,9 +1,12 @@
 import { db } from '@/config/database';
+import { pusher } from '@/config/pusher';
+import { ChatUpdatedResponse, EVENTS } from '@/lib/events';
 import { chats, selectChatSnapshot } from '@/schemas/chat.schema';
-import { messages } from '@/schemas/message.schema';
 import { members } from '@/schemas/member.schema';
+import { messages } from '@/schemas/message.schema';
 import { selectUsersJSON, users } from '@/schemas/user.schema';
 import { desc, eq } from 'drizzle-orm';
+import { BatchEvent } from 'pusher';
 
 export const fetchChat = async (chatId: string) => {
   const [chat] = await db
@@ -65,4 +68,34 @@ export const updateLastMessageOnChat = async (
         .where(eq(chats.id, chatId))
         .execute();
     });
+};
+
+export const notifyMembersOnUpdate = async ({
+  data,
+  chatMembers
+}: {
+  chatMembers?: string[];
+  data: ChatUpdatedResponse;
+}) => {
+  const chatId = data.chatId;
+  if (!chatMembers) {
+    const result = await db
+      .select({ id: members.userId })
+      .from(members)
+      .where(eq(members.chatId, chatId));
+    chatMembers = result.map((member) => member.id);
+  }
+  chatMembers = [...(data.removedMembers || []), ...chatMembers];
+
+  type NotifyMembersOnChatUpdate = Omit<BatchEvent, 'data'> & {
+    data: ChatUpdatedResponse;
+  };
+  const notifyMembers: NotifyMembersOnChatUpdate[] = chatMembers.map(
+    (member) => ({
+      channel: member,
+      name: EVENTS.CHAT_UPDATED,
+      data
+    })
+  );
+  pusher.triggerBatch(notifyMembers);
 };

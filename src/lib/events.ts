@@ -1,12 +1,10 @@
 import { Reaction } from '@/dtos/common.dto';
 
 export const EVENTS = {
-  GROUP_CREATED: 'group-created',
-  ADDED_TO_GROUP: 'added-to-group',
-  GROUP_UPDATED: 'gruop-updated',
-  REMOVED_FROM_GROUP: 'removed-from-group',
-  GROUP_DELETED: 'group-deleted',
+  CHAT_UPDATED: 'chat-updated',
+  CHAT_DELETED: 'chat-deleted',
 
+  MESSAGE_TYPING: 'message-typing',
   MESSAGE_SENT: 'message-sent',
   MESSAGE_SEEN: 'message-seen',
   REACTION_ADDED: 'reaction-added',
@@ -15,33 +13,26 @@ export const EVENTS = {
   USER_ONLINE: 'user-online'
 };
 
-export type GroupCreatedResponse = {
+export type ChatUpdatedResponse = {
   chatId: string;
-};
-export type AddedToGroupResponse = {
-  chatId: string;
-};
-export type GroupUpdatedResponse = {
   name?: string;
   image?: string | null;
-  removedMembersId?: string[];
-  addedMembersId?: string[];
+  removedMembers?: string[];
+  addedMembers?: string[];
 };
-export type RemovedFromGroupResponse = {
-  removedMembersId: string[];
+export type ChatDeletedResponse = unknown;
+export type MessageTypingResponse = {
+  user: string;
 };
-export type GroupDeletedResponse = unknown;
-export type MessageSentResponse = {
-  senderId: string;
-  text?: string | null;
-  image?: string | null;
-};
+export type MessageSentResponse = unknown;
 export type MessageSeenResponse = {
   messageId: string;
   userId: string;
 };
 export type MessageDeletedResponse = {
   messageId: string;
+  sender: string;
+  senderId: string;
 };
 export type ReactionAddedResponse = {
   messageId: string;

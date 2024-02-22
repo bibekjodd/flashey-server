@@ -1,5 +1,6 @@
 import { db } from '@/config/database';
 import {
+  getFriendsListSchema,
   loginUserSchema,
   queryUsersSchema,
   registerUserSchema,
@@ -13,8 +14,10 @@ import {
   verifyPassword
 } from '@/lib/utils';
 import { handleAsync } from '@/middlewares/handle-async';
+import { chats } from '@/schemas/chat.schema';
+import { members } from '@/schemas/member.schema';
 import { selectUserSnapshot, users } from '@/schemas/user.schema';
-import { eq, ilike, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, ne, or } from 'drizzle-orm';
 
 export const registerUser = handleAsync(async (req, res) => {
   const body = registerUserSchema.parse(req.body);
@@ -63,6 +66,36 @@ export const loginUser = handleAsync(async (req, res) => {
     .json({ user: { ...user, password: undefined } });
 });
 
+export const getFriendsList = handleAsync(async (req, res) => {
+  const { page, page_size } = getFriendsListSchema.parse(req.query);
+  const offset = (page - 1) * page_size;
+  const sq = db
+    .select({ chatId: members.chatId })
+    .from(members)
+    .where(eq(members.userId, req.user.id))
+    .innerJoin(
+      chats,
+      and(eq(chats.id, members.chatId), eq(chats.isGroupChat, false))
+    )
+    .groupBy(members.chatId);
+
+  const result = await db
+    .select(selectUserSnapshot)
+    .from(users)
+    .innerJoin(
+      members,
+      and(
+        eq(members.userId, users.id),
+        ne(members.userId, req.user.id),
+        inArray(members.chatId, sq)
+      )
+    )
+    .limit(page_size)
+    .offset(offset)
+    .orderBy(desc(users.lastOnline));
+  return res.json({ friends: result });
+});
+
 export const queryUsers = handleAsync(async (req, res) => {
   const { q, page, page_size } = queryUsersSchema.parse(req.query);
   const offset = (page - 1) * page_size;
@@ -96,7 +129,7 @@ export const getUserProfile = handleAsync<{ id: string }>(async (req, res) => {
 export const updateProfile = handleAsync(async (req, res) => {
   const { name, image } = updateProfileSchema.parse(req.body);
   db.update(users)
-    .set({ name, image: image })
+    .set({ name, image })
     .where(eq(users.id, req.user.id))
     .execute();
   return res.json({ message: 'Profile updated successfully' });

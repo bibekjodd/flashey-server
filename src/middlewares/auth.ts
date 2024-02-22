@@ -16,12 +16,12 @@ export const isAuthenticated = handleAsync(async (req, res, next) => {
   if (!userId) throw unauthorizedException;
 
   const [user] = await db
-    .select(selectUserSnapshot)
-    .from(users)
+    .update(users)
+    .set({ lastOnline: new Date().toISOString() })
     .where(eq(users.id, userId))
-    .limit(1);
-  if (!user) throw unauthorizedException;
+    .returning(selectUserSnapshot);
 
+  if (!user) throw unauthorizedException;
   req.user = user;
   next();
 });

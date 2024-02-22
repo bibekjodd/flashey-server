@@ -23,7 +23,10 @@ export const chats = pgTable(
     createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow(),
+    updatedAt: timestamp('updated_at', {
+      mode: 'string',
+      withTimezone: true
+    }).defaultNow(),
     lastMessage: json('last_message').$type<{
       senderId: string;
       sender: string;
@@ -49,8 +52,8 @@ export type Chat = typeof chats.$inferSelect;
 export const selectChatSnapshot = {
   id: chats.id,
   name: chats.name,
-  image: chats.image,
   admin: chats.admin,
+  image: chats.image,
   isGroupChat: chats.isGroupChat,
   createdAt: chats.createdAt,
   updatedAt: chats.updatedAt,

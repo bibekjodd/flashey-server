@@ -9,7 +9,7 @@ import {
   EVENTS,
   MessageDeletedResponse,
   MessageSeenResponse,
-  MessageSentResponse
+  MessageTypingResponse
 } from '@/lib/events';
 import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
@@ -19,16 +19,42 @@ import { messages, selectMessageSnapshot } from '@/schemas/message.schema';
 import { reactions } from '@/schemas/reaction.schema';
 import { viewers } from '@/schemas/viewer.schema';
 import { updateLastMessageOnChat } from '@/services/chat.service';
-import { and, countDistinct, desc, eq, sql } from 'drizzle-orm';
+import { and, countDistinct, desc, eq, lt, sql } from 'drizzle-orm';
+import { BatchEvent } from 'pusher';
+
+export const updateTypingStatus = handleAsync<{ id: string }>(
+  async (req, res) => {
+    const chatId = req.params.id;
+
+    const [canUpdate] = await db
+      .select()
+      .from(members)
+      .where(and(eq(members.userId, req.user.id), eq(members.chatId, chatId)))
+      .limit(1);
+
+    if (!canUpdate)
+      throw new ForbiddenException(
+        'Your are not allowed to perform action on this chat'
+      );
+
+    // notify user/members
+    pusher.trigger(chatId, EVENTS.MESSAGE_TYPING, {
+      user: req.user.id
+    } satisfies MessageTypingResponse);
+    return res.json({ message: 'Typing status updated successfully' });
+  }
+);
 
 export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
   const chatId = req.params.id;
-  const [canSendMessage] = await db
-    .select()
+  const chatMembers = await db
+    .select({ userId: members.userId })
     .from(members)
-    .where(and(eq(members.userId, req.user.id), eq(members.chatId, chatId)))
-    .limit(1);
+    .where(eq(members.chatId, chatId));
 
+  const canSendMessage = chatMembers.find(
+    ({ userId }) => userId === req.user.id
+  );
   if (!canSendMessage)
     throw new ForbiddenException('You do not belong to this chat');
 
@@ -49,15 +75,31 @@ export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
     sender: req.user.name,
     senderId: req.user.id
   });
+
   // notify user/members
-  pusher.trigger(chatId, EVENTS.MESSAGE_SENT, {
-    image,
-    text,
-    senderId: req.user.id
-  } satisfies MessageSentResponse);
-  return res
-    .status(201)
-    .json({ message: { ...message, viewers: [], reactions: [] } });
+  const membersIds = chatMembers.map((member) => member.userId);
+  const notifyMembers: BatchEvent[] = membersIds.map((id) => ({
+    channel: id,
+    name: EVENTS.MESSAGE_SENT,
+    data: {
+      ...message,
+      totalViews: 0,
+      totalReactions: 0,
+      viewers: [],
+      reactions: []
+    }
+  }));
+  pusher.triggerBatch(notifyMembers);
+
+  return res.status(201).json({
+    message: {
+      ...message,
+      viewers: [],
+      reactions: [],
+      totalViews: 0,
+      totalReactions: 0
+    }
+  });
 });
 
 export const fetchMessage = handleAsync<{ id: string }>(async (req, res) => {
@@ -99,8 +141,8 @@ export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
       'You are not eligible to access messages from this chat'
     );
   }
-  const { page, page_size } = fetchMessagesQuery.parse(req.query);
-  const offset = (page - 1) * page_size;
+  const { cursor, limit } = fetchMessagesQuery.parse(req.query);
+  // const offset = (page - 1) * page_size;
   const result = await db
     .select({
       ...selectMessageSnapshot,
@@ -120,13 +162,12 @@ export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
         )`
     })
     .from(messages)
-    .where(eq(messages.chatId, chatId))
+    .where(and(eq(messages.chatId, chatId), lt(messages.sentAt, cursor)))
     .leftJoin(viewers, eq(messages.id, viewers.messageId))
     .leftJoin(reactions, eq(messages.id, reactions.messageId))
     .groupBy(messages.id)
     .orderBy(desc(messages.sentAt))
-    .limit(page_size)
-    .offset(offset);
+    .limit(limit);
 
   for (const message of result) {
     message.viewers = [...new Set(message.viewers)];
@@ -211,10 +252,16 @@ export const deleteMessage = handleAsync<{ id: string }>(async (req, res) => {
       'Message is already deleted or you are not allowed to delete this message!'
     );
   }
-  updateLastMessageOnChat(deleted.chatId, null);
+  updateLastMessageOnChat(deleted.chatId, {
+    message: 'deleted a message',
+    sender: req.user.name,
+    senderId: req.user.id
+  });
   // notify user/members
   pusher.trigger(deleted.chatId, EVENTS.MESSAGE_DELETED, {
-    messageId
+    messageId,
+    sender: req.user.name,
+    senderId: req.user.id
   } satisfies MessageDeletedResponse);
   return res.json({ message: 'Message deleted successfully' });
 });

@@ -1,5 +1,6 @@
 import {
   deleteProfile,
+  getFriendsList,
   getProfile,
   getUserProfile,
   loginUser,
@@ -17,6 +18,7 @@ export const userRoute = router;
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.get('/search', isAuthenticated, queryUsers);
+router.get('/friends', isAuthenticated, getFriendsList);
 router
   .route('/profile')
   .get(isAuthenticated, getProfile)

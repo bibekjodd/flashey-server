@@ -17,6 +17,9 @@ export const users = pgTable(
     email: varchar('email', { length: 40 }).notNull(),
     password: varchar('password', { length: 100 }),
     image: varchar('image', { length: 200 }),
+    lastOnline: timestamp('last_online', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
     role: varchar('role', { enum: ['user', 'admin'] })
       .notNull()
       .default('user'),
@@ -38,7 +41,8 @@ export const selectUserSnapshot = {
   email: users.email,
   image: users.image,
   role: users.role,
-  createdAt: users.createdAt
+  createdAt: users.createdAt,
+  lastOnline: users.lastOnline
 };
 export type UserSnapshot = {
   id: string;
@@ -47,6 +51,7 @@ export type UserSnapshot = {
   image: string | null;
   role: 'user' | 'admin';
   createdAt: string | null;
+  lastOnline: string;
 };
 export const selectUserJSON = sql<UserSnapshot>`json_build_object(
     'id',${users.id},
@@ -54,6 +59,7 @@ export const selectUserJSON = sql<UserSnapshot>`json_build_object(
     'email',${users.email},
     'image',${users.image},
     'role',${users.role},
-    'createdAt',${users.createdAt}
+    'createdAt',${users.createdAt},
+    'lastOnline',${users.lastOnline}
     )`;
 export const selectUsersJSON = sql<UserSnapshot[]>`json_agg(${selectUserJSON})`;
