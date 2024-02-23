@@ -40,7 +40,7 @@ const envSchema = z
     AUTH_REDIRECT_URI: z
       .string()
       .optional()
-      .transform((uri) => uri || 'http://localhost:5000')
+      .transform((uri) => uri || '/')
   })
   .readonly();
 
