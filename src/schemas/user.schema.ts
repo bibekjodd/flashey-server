@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   pgTable,
   primaryKey,
   text,
@@ -17,6 +18,7 @@ export const users = pgTable(
     email: varchar('email', { length: 40 }).notNull(),
     password: varchar('password', { length: 100 }),
     image: varchar('image', { length: 200 }),
+    isGoogleUser: boolean('is_google_user').notNull().default(false),
     lastOnline: timestamp('last_online', { withTimezone: true, mode: 'string' })
       .notNull()
       .defaultNow(),
@@ -40,6 +42,7 @@ export const selectUserSnapshot = {
   name: users.name,
   email: users.email,
   image: users.image,
+  isGoogleUser: users.isGoogleUser,
   role: users.role,
   createdAt: users.createdAt,
   lastOnline: users.lastOnline
@@ -49,15 +52,18 @@ export type UserSnapshot = {
   name: string;
   email: string;
   image: string | null;
+  isGoogleUser: boolean;
   role: 'user' | 'admin';
-  createdAt: string | null;
+  createdAt: string;
   lastOnline: string;
+  password?: undefined;
 };
 export const selectUserJSON = sql<UserSnapshot>`json_build_object(
     'id',${users.id},
     'name',${users.name},
     'email',${users.email},
     'image',${users.image},
+    'isGoogleUser',${users.isGoogleUser},
     'role',${users.role},
     'createdAt',${users.createdAt},
     'lastOnline',${users.lastOnline}

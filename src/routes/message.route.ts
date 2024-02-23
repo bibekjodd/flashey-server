@@ -7,16 +7,15 @@ import {
   sendMessage,
   updateTypingStatus
 } from '@/controllers/message.controller';
-import { isAuthenticated } from '@/middlewares/auth';
 import { Router } from 'express';
 
 const router = Router();
 export const messageRoute = router;
 
-router.put('/typing/:id', isAuthenticated, updateTypingStatus);
-router.post('/message/:id', isAuthenticated, sendMessage);
-router.get('/messages/:id', isAuthenticated, fetchMessages);
-router.get('/message/:id', isAuthenticated, fetchMessage);
-router.put('/seen/:id', isAuthenticated, messageSeen);
-router.put('/message/:id', isAuthenticated, editMessage);
-router.delete('/message/:id', isAuthenticated, deleteMessage);
+router.put('/typing/:id', updateTypingStatus);
+router.post('/message/:id', sendMessage);
+router.get('/messages/:id', fetchMessages);
+router.get('/message/:id', fetchMessage);
+router.put('/seen/:id', messageSeen);
+router.put('/message/:id', editMessage);
+router.delete('/message/:id', deleteMessage);

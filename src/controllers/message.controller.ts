@@ -11,7 +11,11 @@ import {
   MessageSeenResponse,
   MessageTypingResponse
 } from '@/lib/events';
-import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException
+} from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
 import { members } from '@/schemas/member.schema';
@@ -24,6 +28,7 @@ import { BatchEvent } from 'pusher';
 
 export const updateTypingStatus = handleAsync<{ id: string }>(
   async (req, res) => {
+    if (!req.user) throw new UnauthorizedException();
     const chatId = req.params.id;
 
     const [canUpdate] = await db
@@ -46,6 +51,8 @@ export const updateTypingStatus = handleAsync<{ id: string }>(
 );
 
 export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const chatId = req.params.id;
   const chatMembers = await db
     .select({ userId: members.userId })
@@ -53,7 +60,7 @@ export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
     .where(eq(members.chatId, chatId));
 
   const canSendMessage = chatMembers.find(
-    ({ userId }) => userId === req.user.id
+    ({ userId }) => userId === req.user?.id
   );
   if (!canSendMessage)
     throw new ForbiddenException('You do not belong to this chat');
@@ -103,6 +110,8 @@ export const sendMessage = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const fetchMessage = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const messageId = req.params.id;
 
   const [message] = await db
@@ -131,6 +140,8 @@ export const fetchMessage = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const chatId = req.params.id;
   const [isMember] = await db
     .select()
@@ -187,6 +198,8 @@ export const fetchMessages = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const messageId = req.params.id;
   const [message] = await db
     .select({
@@ -221,6 +234,8 @@ export const messageSeen = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const editMessage = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const messageId = req.params.id;
   const { text, image } = editMessageSchema.parse(req.body);
   const [edited] = await db
@@ -241,6 +256,8 @@ export const editMessage = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const deleteMessage = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const messageId = req.params.id;
   const [deleted] = await db
     .delete(messages)

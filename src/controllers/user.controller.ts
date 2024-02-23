@@ -6,7 +6,7 @@ import {
   registerUserSchema,
   updateProfileSchema
 } from '@/dtos/user.dto';
-import { BadRequestException } from '@/lib/exceptions';
+import { BadRequestException, UnauthorizedException } from '@/lib/exceptions';
 import {
   cookieOptions,
   generateAuthToken,
@@ -33,15 +33,11 @@ export const registerUser = handleAsync(async (req, res) => {
   const [createdUser] = await db
     .insert(users)
     .values({ ...body, password: hashedPassword })
-    .returning();
+    .returning(selectUserSnapshot);
   if (!createdUser) {
     throw new BadRequestException('Could not register user');
   }
-  const token = generateAuthToken(createdUser.id);
-  return res
-    .status(201)
-    .cookie('token', token, cookieOptions)
-    .json({ user: { ...createdUser, password: undefined } });
+  return res.status(201).json({ user: createdUser });
 });
 
 export const loginUser = handleAsync(async (req, res) => {
@@ -67,6 +63,7 @@ export const loginUser = handleAsync(async (req, res) => {
 });
 
 export const getFriendsList = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const { page, page_size } = getFriendsListSchema.parse(req.query);
   const offset = (page - 1) * page_size;
   const sq = db
@@ -97,6 +94,7 @@ export const getFriendsList = handleAsync(async (req, res) => {
 });
 
 export const queryUsers = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const { q, page, page_size } = queryUsersSchema.parse(req.query);
   const offset = (page - 1) * page_size;
   let result = await db
@@ -105,15 +103,17 @@ export const queryUsers = handleAsync(async (req, res) => {
     .where(or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)))
     .limit(page_size)
     .offset(offset);
-  result = result.filter((user) => user.id !== req.user.id);
+  result = result.filter((user) => user.id !== req.user?.id);
   return res.json({ users: result });
 });
 
 export const getProfile = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   return res.json({ user: req.user });
 });
 
 export const getUserProfile = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const userId = req.params.id;
   const [user] = await db
     .select({ ...selectUserSnapshot })
@@ -127,6 +127,7 @@ export const getUserProfile = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const updateProfile = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const { name, image } = updateProfileSchema.parse(req.body);
   db.update(users)
     .set({ name, image })
@@ -136,12 +137,16 @@ export const updateProfile = handleAsync(async (req, res) => {
 });
 
 export const logoutUser = handleAsync(async (req, res) => {
-  return res
-    .cookie('token', 'token', cookieOptions)
-    .json({ message: 'Logged out successfully' });
+  if (!req.user) throw new UnauthorizedException();
+  req.session.destroy(() => {});
+  req.logout(() => {});
+  return res.json({ message: 'Logged out successfully' });
 });
 
 export const deleteProfile = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   await db.delete(users).where(eq(users.id, req.user.id));
+  req.session.destroy(() => {});
+  req.logout(() => {});
   return res.json({ message: 'Profile deleted successfully' });
 });

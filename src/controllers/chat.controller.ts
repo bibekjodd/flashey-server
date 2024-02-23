@@ -11,7 +11,8 @@ import { ChatDeletedResponse, EVENTS } from '@/lib/events';
 import {
   BadRequestException,
   ForbiddenException,
-  NotFoundException
+  NotFoundException,
+  UnauthorizedException
 } from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats, selectChatSnapshot } from '@/schemas/chat.schema';
@@ -21,6 +22,7 @@ import { fetchChat, notifyMembersOnUpdate } from '@/services/chat.service';
 import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 export const createGroupChat = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const body = createGroupChatSchema.parse(req.body);
   if (!body.members.includes(req.user.id)) {
     body.members.push(req.user.id);
@@ -68,6 +70,7 @@ export const createGroupChat = handleAsync(async (req, res) => {
 });
 
 export const accessChat = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   let chatId = req.params.id;
   const isGroupchat = !chatId.includes(req.user.id);
   if (!isGroupchat) {
@@ -98,7 +101,7 @@ export const accessChat = handleAsync<{ id: string }>(async (req, res) => {
   const chat = await fetchChat(chatId);
   if (!chat) throw new NotFoundException("Chat doesn't exist");
   const canAccessChat = chat.members.find(
-    (member) => member.id === req.user.id
+    (member) => member.id === req.user?.id
   );
   if (!canAccessChat)
     throw new ForbiddenException('You are not allowed to access this chat');
@@ -106,6 +109,8 @@ export const accessChat = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const fetchChats = handleAsync(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const { cursor, limit } = fetchChatsQuerySchema.parse(req.query);
 
   const usersChat = db
@@ -129,6 +134,7 @@ export const fetchChats = handleAsync(async (req, res) => {
 });
 
 export const updateChat = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const chatId = req.params.id;
   const { name, image } = updateGroupSchema.parse(req.body);
   if (!image && !name)
@@ -158,6 +164,7 @@ export const updateChat = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const addToGroupChat = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const chatId = req.params.id;
   const body = addToGroupChatSchema.parse(req.body);
   if (!body.members.length)
@@ -204,6 +211,7 @@ export const addToGroupChat = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const chatId = req.params.id;
   const body = removeFromGroupSchema.parse(req.body);
   if (!body.members.length) {
@@ -239,6 +247,7 @@ export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
 });
 
 export const deleteChat = handleAsync<{ id: string }>(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
   const chatId = req.params.id;
   const [chat] = await db
     .delete(chats)

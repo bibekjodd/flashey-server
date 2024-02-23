@@ -1,6 +1,8 @@
 import { env } from '@/config/env.config';
 import bcrypt from 'bcryptjs';
+import MongoStore from 'connect-mongo';
 import type { CookieOptions } from 'express';
+import { SessionOptions } from 'express-session';
 import jwt from 'jsonwebtoken';
 
 export const devConsole = (...args: string[]) => {
@@ -14,6 +16,15 @@ export const cookieOptions: CookieOptions = {
   httpOnly: true,
   secure: env.NODE_ENV !== 'production' ? false : true,
   sameSite: env.NODE_ENV !== 'production' ? 'lax' : 'none'
+};
+
+export const sessionOptions: SessionOptions = {
+  resave: false,
+  saveUninitialized: false,
+  secret: env.SESSION_SECRET,
+  proxy: true,
+  cookie: cookieOptions,
+  store: new MongoStore({ mongoUrl: env.MONGO_URI })
 };
 
 type AuthTokenPayload = { id: string };

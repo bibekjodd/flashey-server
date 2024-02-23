@@ -21,7 +21,9 @@ const envSchema = z
       }),
 
     DATABASE_URL: z.string(),
+    MONGO_URI: z.string(),
     JWT_SECRET: z.string(),
+    SESSION_SECRET: z.string(),
     FRONTEND_URLS: z
       .string()
       .optional()
@@ -29,7 +31,16 @@ const envSchema = z
 
     PUSHER_APP_ID: z.string(),
     PUSHER_KEY: z.string(),
-    PUSHER_SECRET: z.string()
+    PUSHER_SECRET: z.string(),
+
+    GOOGLE_CLIENT_ID: z.string(),
+    GOOGLE_CLIENT_SECRET: z.string(),
+    GOOGLE_CALLBACK_URL: z.string(),
+
+    AUTH_REDIRECT_URI: z
+      .string()
+      .optional()
+      .transform((uri) => uri || 'http://localhost:5000')
   })
   .readonly();
 

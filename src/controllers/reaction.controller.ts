@@ -2,7 +2,11 @@ import { db } from '@/config/database';
 import { pusher } from '@/config/pusher';
 import { emojis, validReactionsSchema } from '@/dtos/common.dto';
 import { EVENTS, ReactionAddedResponse } from '@/lib/events';
-import { BadRequestException, ForbiddenException } from '@/lib/exceptions';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException
+} from '@/lib/exceptions';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
 import { members } from '@/schemas/member.schema';
@@ -16,6 +20,8 @@ export const addReaction = handleAsync<
   unknown,
   { reaction: unknown }
 >(async (req, res) => {
+  if (!req.user) throw new UnauthorizedException();
+
   const messageId = req.params.id;
   const reaction = validReactionsSchema.nullable().parse(req.body?.reaction);
 
@@ -47,7 +53,7 @@ export const addReaction = handleAsync<
           pusher.trigger(result.chatId, EVENTS.REACTION_ADDED, {
             messageId,
             reaction,
-            userId: req.user.id
+            userId: req.user?.id || ''
           } satisfies ReactionAddedResponse);
         }
       });
