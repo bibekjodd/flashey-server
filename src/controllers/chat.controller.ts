@@ -1,11 +1,9 @@
 import { db } from '@/config/database';
 import { pusher } from '@/config/pusher';
 import {
-  addToGroupChatSchema,
   createGroupChatSchema,
   fetchChatsQuerySchema,
-  removeFromGroupSchema,
-  updateGroupSchema
+  updateChatSchema
 } from '@/dtos/chat.dto';
 import { ChatDeletedResponse, EVENTS } from '@/lib/events';
 import {
@@ -19,7 +17,7 @@ import { chats, selectChatSnapshot } from '@/schemas/chat.schema';
 import { InsertMember, members } from '@/schemas/member.schema';
 import { selectUsersJSON, users } from '@/schemas/user.schema';
 import { fetchChat, notifyMembersOnUpdate } from '@/services/chat.service';
-import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
 
 export const createGroupChat = handleAsync(async (req, res) => {
   if (!req.user) throw new UnauthorizedException();
@@ -136,114 +134,89 @@ export const fetchChats = handleAsync(async (req, res) => {
 export const updateChat = handleAsync<{ id: string }>(async (req, res) => {
   if (!req.user) throw new UnauthorizedException();
   const chatId = req.params.id;
-  const { name, image } = updateGroupSchema.parse(req.body);
-  if (!image && !name)
-    throw new BadRequestException(
-      'Provide one of image or name to update group'
-    );
+  const chat = await fetchChat(chatId);
+  if (!chat) throw new NotFoundException("Chat doesn't exist");
 
-  const [chat] = await db
-    .update(chats)
-    .set({ name, image })
-    .where(
-      and(
-        eq(chats.id, chatId),
-        eq(chats.admin, req.user.id),
-        eq(chats.isGroupChat, true)
-      )
-    )
-    .returning();
+  const canUpdatechat = chat.admin === req.user.id;
+  if (!canUpdatechat)
+    throw new ForbiddenException('Only admin can update the chat');
 
-  if (!chat)
-    throw new BadRequestException(
-      'Group does not exist or you are not eligible to update group'
-    );
-
-  notifyMembersOnUpdate({ data: { chatId, name: name, image: image } });
-  return res.json({ message: 'Group updated successfully' });
-});
-
-export const addToGroupChat = handleAsync<{ id: string }>(async (req, res) => {
-  if (!req.user) throw new UnauthorizedException();
-  const chatId = req.params.id;
-  const body = addToGroupChatSchema.parse(req.body);
-  if (!body.members.length)
-    return res.json({ message: 'Members added successfully' });
-
-  const [chat] = await db
-    .select({
-      id: chats.id,
-      admin: chats.admin,
-      members: sql<string[]>`array_agg(${members.userId})`
-    })
-    .from(chats)
-    .where(and(eq(chats.id, chatId), eq(chats.isGroupChat, true)))
-    .leftJoin(members, eq(chats.id, members.chatId))
-    .groupBy(chats.id)
-    .limit(1);
-  if (!chat) throw new NotFoundException('Chat does not exist');
-  if (chat.admin !== req.user.id)
-    throw new ForbiddenException('Only admins can add users to the chat');
-
-  if (chat.members.length + body.members.length > 10) {
-    throw new BadRequestException("Group can't have more than 10 members");
+  if (!chat.isGroupChat) {
+    throw new ForbiddenException('Only group chats can be updated');
   }
 
-  const insertMembers: InsertMember[] = body.members.map((member) => ({
+  const data = updateChatSchema.parse(req.body);
+  const { name, image } = data;
+  const addMembers = data.addMembers || [];
+  const removeMembers = data.removeMembers || [];
+
+  if (removeMembers.includes(req.user.id))
+    throw new ForbiddenException("Admin can't remove themselves from chat");
+
+  console.log(addMembers);
+  const newMembers = addMembers.filter((member) => {
+    const isAlreadyAdded = chat.members.find(({ id }) => id === member);
+    if (isAlreadyAdded) return false;
+    return !removeMembers.includes(member);
+  });
+
+  if (newMembers.length + chat.members.length > 10)
+    throw new BadRequestException("Chat can't have more than 10 members");
+
+  const promises: Promise<unknown>[] = [];
+
+  // update title/image
+  if (data.image || data.name) {
+    promises.push(
+      db
+        .update(chats)
+        .set({ name, image })
+        .where(eq(chats.id, chatId))
+        .execute()
+    );
+  }
+
+  // add members
+  const insertMembers: InsertMember[] = newMembers.map((member) => ({
     chatId,
     userId: member
   }));
-  await db
-    .insert(members)
-    .values(insertMembers)
-    .catch(() => {
-      throw new BadRequestException('Invalid member id provided');
-    });
-
-  // notify members
-  const chatMembers = [...body.members, ...chat.members];
-  notifyMembersOnUpdate({
-    chatMembers,
-    data: { chatId, addedMembers: body.members }
-  });
-
-  return res.json({ message: 'Members added successfully' });
-});
-
-export const removeFromGroup = handleAsync<{ id: string }>(async (req, res) => {
-  if (!req.user) throw new UnauthorizedException();
-  const chatId = req.params.id;
-  const body = removeFromGroupSchema.parse(req.body);
-  if (!body.members.length) {
-    return res.json({
-      message: 'Members removed from the group successfully'
-    });
-  }
-
-  const [chat] = await db
-    .select()
-    .from(chats)
-    .where(and(eq(chats.id, chatId), eq(chats.isGroupChat, true)))
-    .limit(1);
-  if (!chat) throw new NotFoundException('Chat does not exist');
-
-  if (chat.admin !== req.user.id)
-    throw new ForbiddenException(
-      'Only admins can remove members from the group'
+  if (insertMembers.length) {
+    promises.push(
+      db.insert(members).values(insertMembers).onConflictDoNothing().execute()
     );
-
-  if (body.members.includes(req.user.id)) {
-    db.delete(chats).where(eq(chats.id, chatId)).execute();
-    return res.json({ message: 'Chat deleted successfully' });
   }
 
-  db.delete(members).where(inArray(members.userId, body.members)).execute();
-  // notify members
-  notifyMembersOnUpdate({ data: { chatId, removedMembers: body.members } });
+  // remove members
+  if (removeMembers.length) {
+    promises.push(
+      db
+        .delete(members)
+        .where(
+          and(
+            inArray(members.userId, removeMembers),
+            eq(members.chatId, chatId)
+          )
+        )
+        .execute()
+    );
+  }
 
-  return res.json({
-    message: 'Members removed from the chat successfully'
+  await Promise.all(promises);
+  const updatedChat = await fetchChat(chatId);
+  const chatMembers = updatedChat?.members.map((member) => member.id);
+  // notify members
+  notifyMembersOnUpdate({
+    chatMembers: chatMembers || [],
+    data: {
+      chatId,
+      addedMembers: newMembers,
+      image,
+      name,
+      removedMembers: removeMembers
+    }
   });
+  return res.json({ chat: updatedChat });
 });
 
 export const deleteChat = handleAsync<{ id: string }>(async (req, res) => {

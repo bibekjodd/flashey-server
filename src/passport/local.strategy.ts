@@ -23,7 +23,11 @@ export const LocalStrategy = new Strategy(
         );
       }
       if (user.isGoogleUser)
-        return done(new BadRequestException('Try signing in with google'));
+        return done(
+          new BadRequestException(
+            'Try signing in with google as your account is previously signed in with google'
+          )
+        );
 
       const isPasswordMatched = await verifyPassword(password, user.password!);
       if (!isPasswordMatched) {

@@ -1,17 +1,13 @@
 import { db } from '@/config/database';
 import {
   getFriendsListSchema,
-  loginUserSchema,
   queryUsersSchema,
   registerUserSchema,
   updateProfileSchema
 } from '@/dtos/user.dto';
 import { BadRequestException, UnauthorizedException } from '@/lib/exceptions';
 import {
-  cookieOptions,
-  generateAuthToken,
-  hashPassword,
-  verifyPassword
+  hashPassword
 } from '@/lib/utils';
 import { handleAsync } from '@/middlewares/handle-async';
 import { chats } from '@/schemas/chat.schema';
@@ -37,29 +33,9 @@ export const registerUser = handleAsync(async (req, res) => {
   if (!createdUser) {
     throw new BadRequestException('Could not register user');
   }
-  return res.status(201).json({ user: createdUser });
-});
-
-export const loginUser = handleAsync(async (req, res) => {
-  const body = loginUserSchema.parse(req.body);
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, body.email))
-    .limit(1);
-
-  const exception = new BadRequestException('Invalid credentials provided');
-  if (!user) throw exception;
-  const isValidPassword = await verifyPassword(
-    body.password,
-    user.password || ''
-  );
-  if (!isValidPassword) throw exception;
-
-  const token = generateAuthToken(user.id);
-  return res
-    .cookie('token', token, cookieOptions)
-    .json({ user: { ...user, password: undefined } });
+  req.login(createdUser, () => {
+    return res.status(201).json({ user: createdUser });
+  });
 });
 
 export const getFriendsList = handleAsync(async (req, res) => {

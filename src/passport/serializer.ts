@@ -10,13 +10,13 @@ export const serializer = () => {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const [user] = await db
-        .select(selectUserSnapshot)
-        .from(users)
-        .where(eq(users.id, id));
-      if (!user) done(null, false);
-      done(null, user);
+        .update(users)
+        .set({ lastOnline: new Date().toISOString() })
+        .where(eq(users.id, id))
+        .returning(selectUserSnapshot);
+      return done(null, user || null);
     } catch (error) {
-      done(error, false);
+      done(error, null);
     }
   });
 };
